@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Character Screen</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#efe4cc;--panel:#f8f0de;--ink:#2a2014;--dim:#85704f;--line:#c9b58c;--amber:#9c5a10;--hi:#5e3304;--ok:#2d7a30;--bad:#b3261e;--field:#fffaf0;color-scheme:light}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14120e;--panel:#201b14;--ink:#ead7b2;--dim:#92794f;--line:#5a4729;--amber:#d99b52;--hi:#f2c987;--ok:#62d46c;--bad:#ff6f61;--field:#120f0b;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14120e;--panel:#201b14;--ink:#ead7b2;--dim:#92794f;--line:#5a4729;--amber:#d99b52;--hi:#f2c987;--ok:#62d46c;--bad:#ff6f61;--field:#120f0b;color-scheme:dark}
+html{font-size:17px;scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 ui-monospace,"SFMono-Regular",Menlo,Consolas,"Courier New",monospace}
+.wrap{max-width:1200px;margin:0 auto;padding:14px}
+.panel{position:relative;background:var(--panel);border:1px solid var(--line);padding:12px 14px}
+.panel::before,.panel::after{content:"";position:absolute;width:8px;height:8px;border:2px solid var(--amber)}
+.panel::before{left:-1px;top:-1px;border-right:0;border-bottom:0}
+.panel::after{right:-1px;bottom:-1px;border-left:0;border-top:0}
+.grid+.panel,.panel+.panel{margin-top:14px}
+.grid>.panel{margin-top:0}
+.head{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:flex-start;justify-content:space-between}
+.title{display:inline-flex;align-items:center;background:var(--amber);color:var(--bg);padding:4px 10px;font-weight:700;font-size:1.25em;letter-spacing:.05em}
+input,textarea,button{font:inherit;font-size:17px;color:var(--ink)}
+.title input{background:transparent;border:0;color:inherit;text-transform:uppercase;width:13ch;outline:0;font-weight:700}
+.sub{color:var(--dim);font-size:.82em;margin:6px 0}
+.sblock{display:grid;gap:8px;margin-top:12px}
+#hp{margin-top:12px}
+.pills,.stats{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pill{border:1px solid var(--line);background:var(--field);padding:4px 10px;display:flex;flex-direction:column;align-items:center;min-width:86px}
+.pill b{font-size:1.15em;color:var(--hi)}
+.pill label{color:var(--dim);font-size:.85em;display:flex;gap:6px;align-items:center}
+input[type=number]{width:3.4em;text-align:center;background:var(--field);border:1px solid var(--line);padding:2px;-moz-appearance:textfield}
+input:focus,textarea:focus,button:focus-visible,.nm:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
+button{background:var(--field);border:1px solid var(--line);padding:4px 10px;cursor:pointer;font-size:.85rem;letter-spacing:.05em}
+button:hover{border-color:var(--amber)}
+button:disabled{opacity:.5;cursor:default}button:disabled:hover{border-color:var(--line)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:14px}
+.ch{display:flex;justify-content:space-between;gap:8px;color:var(--amber);font-size:.85em;letter-spacing:.06em;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:6px}
+.ch>span:last-child{color:var(--dim)}
+.row{display:grid;grid-template-columns:1fr 3.4em 3.4em minmax(3.6em,auto);gap:6px;align-items:center;padding:2px 0}
+.nm{cursor:pointer;padding:2px 4px;user-select:none}
+.nm:hover{background:var(--line)}
+.eff{text-align:right;font-weight:700;font-size:1.1em;color:var(--hi);white-space:nowrap}
+small{font-size:.75em}
+.up{color:var(--ok)!important}.dn{color:var(--bad)!important}
+input.dn{border-color:var(--bad)!important}
+#roll{display:none;border:1px solid var(--line);padding:3px 10px;background:var(--field)}
+summary{cursor:pointer;color:var(--amber);letter-spacing:.06em}
+textarea{width:100%;background:var(--field);border:1px solid var(--line);padding:8px;margin-top:8px;resize:vertical}
+.btns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center}
+[hidden]{display:none!important}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;position:sticky;top:0;z-index:10;align-items:center}
+.rlog{margin-top:10px;border:1px solid var(--line);background:var(--field);padding:6px 10px}
+.rlog .ch{align-items:center}
+.rl{display:flex;justify-content:space-between;gap:8px;font-size:.9em;padding:2px 0;border-bottom:1px dotted var(--line)}
+.rl:last-child{border-bottom:0}
+.rl small{color:var(--dim)}
+.diff{margin-left:auto;color:var(--dim);font-size:.85rem;letter-spacing:.05em}.cur{background:var(--amber)!important;color:var(--bg)!important;border-color:var(--amber)!important}
+input[type=text],select{font-family:inherit;background:var(--field);border:1px solid var(--line);padding:2px 6px;font-size:17px;color:var(--ink)}
+label{display:inline-flex;gap:6px;align-items:center}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:14px;margin-top:10px}
+@media(max-width:640px){.two{grid-template-columns:1fr}}
+.flist{display:grid;gap:6px;align-content:start;height:440px;overflow-y:auto;padding-right:6px;scrollbar-color:var(--line) transparent;scrollbar-width:thin}
+#finfo{height:440px;overflow-y:auto;scrollbar-color:var(--line) transparent;scrollbar-width:thin}
+#finfo>.tank{min-height:100%}
+#flist{background:var(--field);border:1px solid var(--line);padding:8px}
+@media(max-width:640px){.flist{height:300px}#finfo{height:auto}#finfo>.tank{min-height:0}}
+.it{cursor:pointer}.it:hover{border-color:var(--amber)}
+.it.sel{border-color:var(--amber);box-shadow:inset 3px 0 0 var(--amber)}
+.it small{color:var(--dim);letter-spacing:.05em}
+.lock{opacity:.6}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.tags span{border:1px solid var(--line);padding:1px 8px;font-size:.85em}
+#finfo .sub{white-space:pre-wrap;color:var(--ink);font-size:.9em}
+#finfo .tl b{color:var(--hi);font-size:1.1em}
+.ch+.btns{margin-top:0}
+.tank{border:1px solid var(--line);background:var(--field);padding:8px 10px}
+.tl{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.bar{height:8px;border:1px solid var(--line);margin:6px 0;overflow:hidden}.bar i{display:block;height:100%}
+.dos{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:18px}
+@media(max-width:640px){.dos{grid-template-columns:1fr}.port{max-width:260px;width:100%;margin:0 auto}}
+.led{border:1px solid var(--line);background:var(--field);margin:10px 0}
+.led label{display:flex;justify-content:space-between;gap:10px;padding:4px 8px;border-bottom:1px solid var(--line);color:var(--dim)}
+.led input{text-align:right;width:60%;color:var(--ink);font-weight:700;background:transparent;border:0;outline-offset:0}
+.port{display:flex;flex-direction:column;gap:8px;align-items:stretch;align-self:start}
+#pimg,.noimg{width:100%;aspect-ratio:210/310;border:1px solid var(--amber);background:var(--field)}
+#pimg{object-fit:cover}.noimg{display:flex;align-items:center;justify-content:center;color:var(--dim)}
+.btn input[type=checkbox]{accent-color:var(--amber);margin:0 4px 0 0;vertical-align:-2px}
+#cpick select,#cpick input{min-width:0;flex:1;max-width:65%}
+.lore{color:var(--ink);font-size:.88em;white-space:pre-wrap;max-height:10em;overflow:auto;margin:8px 0}
+.flinks{display:grid;gap:4px;margin-top:8px}
+.fl{display:flex;justify-content:space-between;gap:8px;text-align:left;letter-spacing:0;font-size:.9rem}
+.fl small{color:var(--dim)}
+.cols{display:grid;grid-template-columns:270px minmax(0,1fr) 210px;gap:18px;margin-top:12px;align-items:start}
+.side{display:grid;gap:8px;align-self:stretch;grid-template-rows:auto auto 1fr;font-size:15px}
+.side .pts{font-size:16px;display:grid;gap:4px}
+.pts b{color:var(--hi)}
+.side input{font-size:16px}
+.side .stats{display:grid;gap:8px;grid-auto-rows:1fr}
+.side .pill{flex-direction:row-reverse;justify-content:space-between;align-items:center;min-width:0;padding:8px 14px;font-size:1.25em}
+.side .pill b{font-size:1.4em;white-space:nowrap}
+.side .pill label{display:grid;grid-template-columns:3em auto auto;gap:6px}
+.side .pill.lv{justify-content:flex-end}
+.mid #hp{margin:0}
+.mid #cpills .pill{flex:1}
+.mid #cpills .pill label{flex-wrap:wrap;justify-content:center}
+.ico{width:1.4em;height:1.4em;color:var(--amber);flex:none}
+.mid{display:grid;gap:12px}.mid .led,.mid textarea{margin:0}
+#cpick{grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin:0}
+@media(max-width:900px){.cols{grid-template-columns:270px minmax(0,1fr)}.cols .port{grid-column:1/-1;max-width:260px;width:100%;margin:0 auto}}
+@media(max-width:600px){.cols{grid-template-columns:1fr}}
+.arm2{display:grid;grid-template-columns:280px minmax(0,1fr);gap:18px;align-items:start;margin-top:10px}
+@media(max-width:760px){.arm2{grid-template-columns:1fr}}
+.aslots{display:grid;gap:8px;margin-top:8px}
+.aslot select{width:100%;margin-top:6px}
+.aslot.on{border-color:var(--amber)}
+.aslot .sub{margin:6px 0 0}
+.mag{display:flex;flex-wrap:wrap;gap:3px 4px;margin-top:8px}
+.shot{padding:0;border:0;background:none;width:12px;height:34px;display:flex;align-items:flex-end;justify-content:center;cursor:pointer}
+.shot svg{width:10px;height:30px;overflow:visible}
+.shot svg *{stroke-width:1;transition:fill .15s}
+.shot.live svg *{fill:var(--amber);stroke:var(--hi)}
+.shot.part svg *{fill:var(--amber);fill-opacity:.4;stroke:var(--amber)}
+.shot.spent svg *{fill:none;stroke:var(--dim)}
+.shot:hover svg *{stroke:var(--hi)}
+.shot:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
+@media(prefers-reduced-motion:reduce){.shot svg *{transition:none}}
+.dicebox{display:inline-flex;gap:6px;align-items:center;margin:0}
+#dice{width:7em;font-size:.85rem;padding:3px 6px}
+#dicer{font-size:.85rem;white-space:nowrap}
+.fwarn{margin:6px 0 0}
+#sks{width:13em;font:inherit;font-size:.85rem;background:var(--field);border:1px solid var(--line);color:var(--ink);padding:4px 8px}
+.tank.down{border-color:var(--bad);box-shadow:inset 0 0 0 1px var(--bad)}
+.lvup{margin-top:8px;padding-top:6px;border-top:1px dashed var(--line);font-size:.9em}
+.lvup button{padding:0 6px}
+[data-cdur]{width:3.2em}
+.ammo{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-top:8px}
+.ammo .on{border-color:var(--amber)}
+.ammo .btns{margin-top:6px;gap:4px}.ammo .sub{margin:6px 0 0}
+.wammo select{font-size:.85rem;padding:1px 4px}
+.btn{border:1px solid var(--line);background:var(--field);padding:4px 10px;cursor:pointer;font-size:.85rem;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+ <div class="tabs panel"><button data-go="char" class="cur">Character</button><button data-go="skills">Skills</button><button data-go="feats">Feats</button><button data-go="vis">Vis</button><button data-go="armory">Armory</button><button data-go="data">Library &amp; saves</button><b id="dying" class="dn" role="status" hidden>☠ DYING</b><span id="savewarn" class="dn" role="alert" style="font-size:.85rem" hidden>⚠ Not saving: browser storage is full or blocked. Download your character.</span><label class="diff">Difficulty <select id="diff" aria-label="Difficulty modifier"><option value="30">Trivial (+30)</option><option value="20">Effortless (+20)</option><option value="10">Simple (+10)</option><option value="0">Normal (0)</option><option value="-10">Difficult (-10)</option><option value="-20">Challenging (-20)</option><option value="-30">Complicated (-30)</option></select></label><form id="dicef" class="dicebox"><input type="text" id="dice" placeholder="3d6+2" aria-label="Dice to roll" autocomplete="off" spellcheck="false"><button>🎲 Roll</button><span id="dicer" role="status" aria-live="polite"></span></form></div>
+ <div class="panel" data-tab="char" style="margin-top:14px">
+  <div class="head" style="align-items:center"><div class="title">&gt; <input data-name aria-label="Character name" maxlength="24"></div><select id="chars2" aria-label="Switch character"></select></div>
+  <div class="cols">
+   <div class="side">
+    <div class="pill lv"><label>LVL <input type="number" min="1" data-lvl></label></div>
+    <div class="tank pts" id="cpts"></div>
+    <div class="stats" id="stats"></div>
+   </div>
+   <div class="mid">
+    <div class="stats" id="cpills"></div>
+    <div class="tank" id="hp"></div>
+    <div class="grid" id="cpick"></div>
+    <div class="led">
+     <label>Age / pronouns <input type="text" data-m="age"></label>
+     <label>Faction <input type="text" data-m="faction"></label>
+    </div>
+    <textarea data-m="bio" rows="4" placeholder="Appearance, scars, backstory…" aria-label="Appearance and notes"></textarea>
+   </div>
+   <div class="port">
+    <div id="pnone" class="noimg">[ no signal ]</div><img id="pimg" alt="Character portrait" hidden>
+    <label class="btn">Upload portrait <input type="file" id="pfile" accept="image/*" hidden></label>
+   </div>
+  </div>
+ </div>
+ <section class="panel" data-tab="skills" hidden>
+  <div class="pills">
+   <div class="pill"><label>SKILL PTS</label><b id="pool"></b></div>
+   <div class="pill"><label>MAX CAP</label><b id="cap"></b></div>
+   <button id="clr" title="Reset all temporary modifiers to 0">↺ Clear temp</button>
+   <input type="search" id="sks" placeholder="Search skills…" aria-label="Search skills" autocomplete="off" spellcheck="false">
+   <span id="sknone" class="sub" style="margin:0" hidden>No skills match.</span>
+   <div id="roll" role="status" aria-live="polite"></div>
+  </div>
+  <div class="sub" style="margin-bottom:0">// Base 4 = 100% (+8.5% / −10%) · click a skill to roll d100 under</div>
+  <div class="rlog" data-rlog></div>
+ </section>
+ <div class="grid" id="grid" data-tab="skills" hidden></div>
+ <details class="panel" open data-tab="skills" hidden>
+  <summary>FEATURES &amp; BONUSES</summary>
+  <div class="sub">One per line: <i>Name: Body +1, Heavy Firearms +5</i>. Attributes (name or BDY, DEX…) and skills both work. Boosted skills get a ✦.</div>
+  <textarea id="feats" rows="4" spellcheck="false" aria-describedby="fwarn"></textarea>
+  <div id="fwarn" class="sub dn fwarn" role="status" hidden></div>
+ </details>
+ <section class="panel" data-tab="feats" hidden>
+  <div class="btns"><b>Browse</b><span id="fk" class="btns" style="margin:0"></span><label class="btn"><input type="checkbox" id="fall"> Show all</label><div class="pill" style="margin-left:auto"><label>FEAT PTS</label><b id="fpts"></b></div></div>
+  <div class="two"><div id="flist" class="flist"></div><div id="finfo"></div></div>
+ </section>
+ <section class="panel" data-tab="vis" hidden>
+  <div class="btns"><b id="cname"></b><select id="cruc" aria-label="Crucible"></select><button id="refill">✦ Refill all</button></div>
+  <div class="grid" id="vtanks"></div>
+  <div class="btns" style="margin-top:14px"><b>Known spells</b><select id="learn" aria-label="Learn spell"></select></div>
+  <div class="btns" id="vfilter" role="group" aria-label="Filter known spells by vis cost"></div>
+  <div class="grid" id="vspells"></div>
+  <div class="rlog" data-rlog></div>
+ </section>
+ <section class="panel" data-tab="armory" hidden>
+  <div class="tl"><b>Load</b><span id="load"></span></div><div class="bar"><i id="loadbar"></i></div>
+  <div class="arm2">
+   <aside>
+    <div class="tl" style="margin-top:6px"><b>Armor</b><span class="sub" id="armtot" style="margin:0"></span></div>
+    <div class="aslots" id="aslots"></div>
+   </aside>
+   <div>
+    <div class="btns" style="margin-top:6px"><b>Weapons</b><select id="addwpn" aria-label="Equip weapon"></select><span id="atk" class="sub" role="status" aria-live="polite"></span></div>
+    <div class="grid" id="wpns"></div>
+    <div class="btns" style="margin-top:14px"><b>Spare ammo</b><span class="sub" style="margin:0">Reloading draws from these. Weapons share a pool when they use the same ammo type.</span></div>
+    <div class="ammo" id="ammo"></div>
+    <div class="rlog" data-rlog></div>
+    <div class="btns" style="margin-top:14px"><b>Items</b><select id="additem" aria-label="Add item"></select><button id="addcustom">+ Custom item</button></div>
+    <div class="grid" id="gear"></div>
+    <div class="btns" style="margin-top:14px"><b>Conditions</b><select id="addcond" aria-label="Apply condition"></select><button id="nextr" title="Count down every timed condition by one round">⏭ Next round</button><span id="rmsg" class="sub" style="margin:0" role="status"></span></div>
+    <div class="grid" id="conds"></div>
+    <textarea data-m="log" rows="3" placeholder="Weapon jams, crucible faults, active effects…" aria-label="Field log"></textarea>
+   </div>
+  </div>
+ </section>
+ <section class="panel" data-tab="data" hidden>
+  <div class="ch"><span>CHARACTERS</span><span id="ccount"></span></div>
+  <div class="btns"><select id="chars" aria-label="Switch character"></select><button id="newc">+ New</button><button id="dupc">Duplicate</button><button id="delc">Delete</button></div>
+  <div class="sub">Changes save automatically in this browser. Download a .json file to back up or share the current character. Open a file, or paste JSON and Import, to add one as a new character.</div>
+  <div class="btns"><button id="dl">⤓ Download .json</button><label class="btn">⤒ Open file… <input type="file" id="cfile" accept=".json,application/json" hidden></label><span id="msg" class="sub" role="status"></span></div>
+  <textarea id="io" rows="5" spellcheck="false" placeholder="Character JSON" aria-label="Character JSON"></textarea>
+  <div class="btns"><button id="exp">Export as text</button><button id="imp">Import text</button></div>
+ </section>
+ <section class="panel" data-tab="data" hidden>
+  <div class="ch"><span>LIBRARY</span><span id="lcount"></span></div>
+  <div class="sub">Open the vault exporter’s .json file, or paste its JSON and load it. It’s kept in this browser.</div>
+  <textarea id="lib" rows="6" spellcheck="false" aria-label="Library JSON"></textarea>
+  <div class="btns"><button id="loadlib">Load library</button><label class="btn">⤒ Open file… <input type="file" id="lfile" accept=".json,application/json" hidden></label><span id="lmsg" class="sub"></span></div>
+ </section>
+</div>
+<script>
+const G=[
+["Body","BDY","Δ",["Assault Rifles","Feat of Strength","Heavy Firearms","One-Handed","Shotguns","Swimming","Two-Handed","Unarmed"]],
+["Dexterity","DEX","Λ",["Lockpicking","Pickpocket","Pistols","SMGs","Throwing"]],
+["Agility","AGI","Φ",["Athletics","Dance","Dodge","Evasion","Stealth"]],
+["Intelligence","INT","Ψ",["Accounting","Biology","Chemistry","Electronics","Energy Weapons","First Aid","Geology","Hacking","Mechanics","Physics","Zoology"]],
+["Perception","PER","Ω",["Crossbows","Deep Search","Locate Trap","Photo & Film","Sniper Rifles"]],
+["Willpower","WILL","Җ",["Interrogation","Intimidate","Perform","Persuasion/Fast Talk","Seduction"]]];
+const DEF={name:"New character",level:1,attr:{Body:5,Dexterity:5,Agility:5,Intelligence:5,Perception:5,Willpower:5},pts:{},temp:{},feats:""};
+const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
+const norm=s=>s.toLowerCase().replace(/[^a-z0-9]/g,"");
+const esc=s=>String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+// Update a container to new HTML in place, keeping existing elements (and focus) where the structure matches
+function morphKids(a,b){const ac=[...a.childNodes],bc=[...b.childNodes];
+ bc.forEach((n,i)=>i<ac.length?morph(ac[i],n):a.appendChild(n));ac.slice(bc.length).forEach(n=>n.remove())}
+function morph(a,b){
+ if(a.nodeType!==b.nodeType||a.nodeName!==b.nodeName){a.replaceWith(b);return}
+ if(a.nodeType!==1){if(a.nodeValue!==b.nodeValue)a.nodeValue=b.nodeValue;return}
+ for(const{name}of[...a.attributes])if(!b.hasAttribute(name))a.removeAttribute(name);
+ for(const{name,value}of[...b.attributes])if(a.getAttribute(name)!==value)a.setAttribute(name,value);
+ morphKids(a,b);
+ if(a.tagName==="INPUT"){const v=b.getAttribute("value")??"";if(a.type==="checkbox")a.checked=b.hasAttribute("checked");else if(a.type!=="file"&&a.value!==v)a.value=v}
+ else if(a.tagName==="SELECT")a.selectedIndex=Math.max(0,[...a.options].findIndex(o=>o.hasAttribute("selected")))}
+function setHTML(el,html){const t=document.createElement("template");t.innerHTML=html;morphKids(el,t.content)}
+const mult=n=>n>4?1+(n-4)*.085:n<4?Math.max(.1,1-(4-n)*.1):1;
+const clamp=v=>Math.max(5,Math.min(90,v));
+const n0=(x,d)=>x==null||isNaN(+x)?d:+x;
+const fix=o=>({name:String(o.name||"Unnamed"),level:Math.max(1,+o.level||1),
+ attr:{...Object.fromEntries(G.map(g=>[g[0],5])),...o.attr},pts:{...o.pts},temp:{...o.temp},feats:String(o.feats??""),career:String(o.career||""),origin:String(o.origin||""),
+ got:{feat:[],"origin-feature":[],"career-feature":[],...o.got},vis:o.vis||{},crucible:String(o.crucible||""),spells:Array.isArray(o.spells)?o.spells:[],
+ diff:[-30,-20,-10,0,10,20,30].includes(+o.diff)?+o.diff:0,rolls:Array.isArray(o.rolls)?o.rolls.filter(x=>x&&typeof x==="object").slice(0,10):[],vf:Array.isArray(o.vf)?o.vf.filter(x=>["Aer","Aqua","Ignis","Ordo","Perditio","Terra"].includes(x)):[],hp:n0(o.hp,20),maxHp:Math.max(1,n0(o.maxHp,20)),armorBase:n0(o.armorBase,0),move:n0(o.move,0),init:n0(o.init,0),
+ age:String(o.age||""),bg:String(o.bg||""),faction:String(o.faction||""),motive:String(o.motive||""),bio:String(o.bio||""),log:String(o.log||""),portrait:String(o.portrait||""),showAll:!!o.showAll,
+ wpn:Array.isArray(o.wpn)?o.wpn:[],arm:Array.isArray(o.arm)?o.arm:[],gear:Array.isArray(o.gear)?o.gear.filter(Boolean):[],conds:Array.isArray(o.conds)?o.conds:[],
+ ammo:Object.fromEntries(Object.entries(o.ammo&&typeof o.ammo==="object"?o.ammo:{}).map(([k,v])=>[k,Math.max(0,Math.floor(+v)||0)])),
+ cdur:Object.fromEntries(Object.entries(o.cdur&&typeof o.cdur==="object"?o.cdur:{}).map(([k,v])=>[k,Math.floor(+v)||0]).filter(([,v])=>v>0))});
+// Storage: an index of characters ("chars-v1") plus one key per character ("char-<id>").
+// The old single-sheet key ("sheet-v1") is migrated on first run and left in place as a backup.
+const LS={get(k){try{return JSON.parse(localStorage.getItem(k)||"null")}catch(e){return null}},
+ set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}},
+ del(k){try{localStorage.removeItem(k)}catch(e){}}};
+const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+let IDX=LS.get("chars-v1");
+if(!IDX||!Array.isArray(IDX.list)||!IDX.list.length){const old=LS.get("sheet-v1"),id=newId();IDX={cur:id,list:[{id,name:old&&old.name||""}]};if(old)LS.set("char-"+id,old)}
+if(!IDX.list.some(c=>c.id===IDX.cur))IDX.cur=IDX.list[0].id;
+const MEM={};// characters loaded this session, so switching still works if storage is blocked
+let S;try{S=fix(LS.get("char-"+IDX.cur)||DEF)}catch(e){S=fix(DEF)}
+MEM[IDX.cur]=S;
+const save=()=>{const c=IDX.list.find(c=>c.id===IDX.cur);if(c)c.name=S.name;MEM[IDX.cur]=S;
+ const ok=LS.set("char-"+IDX.cur,S)&&LS.set("chars-v1",IDX);$("#savewarn").hidden=ok};
+
+function bonuses(){const b={};
+ S.feats.split("\n").forEach(l=>{const i=l.indexOf(":");if(i<0)return;
+  l.slice(i+1).split(",").forEach(t=>{const m=t.trim().match(/^(.+?)\s*([+-]\s*\d+(?:\.\d+)?)$/);
+   if(m){const k=norm(m[1]);b[k]=(b[k]||0)+Number(m[2].replace(/\s/g,""))}})});
+ const its=[...S.got.feat,...gotNames("origin-feature"),...gotNames("career-feature")].map(n=>L.all[norm(n)]);
+ ["career","origin"].forEach(k=>its.push((L.by[k]||[]).find(x=>norm(x.name)===norm(S[k]))));
+ S.arm.forEach(n=>its.push(L.all[norm(n)]));S.wpn.forEach(x=>its.push(L.all[norm(x.name)]));S.conds.forEach(n=>its.push(L.all[norm(n)]));
+ its.forEach(it=>{for(const[k,v]of bonusEntries(it)){const q=norm(k);b[q]=(b[q]||0)+v}});
+ return b}
+// Lines in the Features & Bonuses box that won't do anything, with the reason
+const KNOWN=new Set(["maxhp","armor","movement","initiative"]);
+G.forEach(([k,ab,,sk])=>{KNOWN.add(norm(k));KNOWN.add(norm(ab));sk.forEach(n=>{KNOWN.add(norm(n));KNOWN.add(norm(n.replace("&","and")))})});
+function featIssues(){const out=[];
+ S.feats.split("\n").forEach((l,i)=>{if(!l.trim())return;const c=l.indexOf(":"),at=`Line ${i+1}: `;
+  if(c<0){out.push(at+`no “:”, so it’s ignored. Write it as Name: ${l.trim()}`);return}
+  l.slice(c+1).split(",").forEach(t=>{t=t.trim();if(!t)return;const m=t.match(/^(.+?)\s*([+-]\s*\d+(?:\.\d+)?)$/);
+   if(!m)out.push(at+`“${t}” needs a + or − number, like +1`);
+   else if(!KNOWN.has(norm(m[1])))out.push(at+`“${m[1].trim()}” isn’t an attribute or skill`)})});
+ return out}
+function renderFeatWarn(){const w=featIssues(),el=$("#fwarn");el.hidden=!w.length;
+ el.innerHTML=w.slice(0,5).map(x=>"⚠ "+esc(x)).join("<br>")+(w.length>5?`<br>…and ${w.length-5} more`:"")}
+// Bonuses from a library entry: a map (Body: 1, Stealth: -10) or a line ("Body +1, Stealth -10")
+function bonusEntries(it){const o=it&&it.Bonuses;if(!o)return[];
+ if(typeof o==="string")return o.split(",").map(t=>t.trim().match(/^(.+?)\s*([+-]\s*\d+(?:\.\d+)?)$/)).filter(Boolean).map(m=>[m[1].trim(),Number(m[2].replace(/\s/g,""))]);
+ if(Array.isArray(o))return o.flatMap(x=>bonusEntries({Bonuses:x}));
+ if(typeof o==="object")return Object.entries(o).map(([k,v])=>[k,Number(v)||0]).filter(([,v])=>v);return[]}
+const bonTags=it=>{const e=bonusEntries(it);return e.length?`<div class="tags">${e.map(([n,v])=>`<span class="${v>0?"up":"dn"}">${esc(n)} ${v>0?"+":""}${v}</span>`).join("")}</div>`:""};
+
+$("#stats").innerHTML=G.map(([k,ab])=>`<div class="pill"><b data-pct="${k}"></b><label>${ab} <input type="number" data-attr="${k}"><span data-bon="${k}"></span></label></div>`).join("");
+$("#grid").innerHTML=G.map(([k,ab,sym,sk])=>`<div class="panel"><div class="ch"><span>${sym} ${k.toUpperCase()} · <span data-pct="${k}"></span></span><span>PTS | TEMP | EFF</span></div>`+
+ sk.map(n=>`<div class="row" data-a="${k}" data-n="${esc(n)}"><span class="nm" role="button" tabindex="0"></span><input type="number" min="0" data-pts="${esc(n)}" placeholder="0" aria-label="${esc(n)} points"><input type="number" data-temp="${esc(n)}" placeholder="±0" aria-label="${esc(n)} temporary modifier"><span class="eff"></span></div>`).join("")+`</div>`).join("");
+
+// Skill search: matches skill names, or an attribute name/abbreviation to show its whole group
+function filterSkills(){const q=norm($("#sks").value);let total=0;
+ $$("#grid > .panel").forEach(p=>{let any=0;p.querySelectorAll(".row").forEach(r=>{const g=G.find(x=>x[0]===r.dataset.a);
+   const show=!q||norm(r.dataset.n).includes(q)||(q.length>=3&&norm(g[0]).startsWith(q))||norm(g[1])===q;r.hidden=!show;if(show)any++});
+  p.hidden=!any;total+=any});
+ $("#sknone").hidden=total>0}
+$("#sks").addEventListener("input",filterSkills);
+$("#sks").addEventListener("keydown",e=>{if(e.key==="Escape"){e.target.value="";filterSkills()}});
+const sizeName=()=>{$("[data-name]").style.width=Math.max(8,S.name.length+1)*1.1+"ch"};
+function fill(){$("[data-name]").value=S.name;sizeName();$("#diff").value=S.diff;$("[data-lvl]").value=S.level;$("#feats").value=S.feats;$$("[data-m]").forEach(i=>i.value=S[i.dataset.m]||"");
+ $$("[data-attr]").forEach(i=>i.value=S.attr[i.dataset.attr]);
+ $$("[data-pts]").forEach(i=>i.value=S.pts[i.dataset.pts]||"");
+ $$("[data-temp]").forEach(i=>i.value=S.temp[i.dataset.temp]||"")}
+
+function update(){calc(true);calc()}
+function calc(dry){
+ const b=bonuses(),lvl=Math.max(1,Math.floor(S.level)||1),cap=10+lvl*5,pool=120+(lvl-1)*40;let spent=0;const A={};CUR={lvl,attr:{},skill:{},fin:{}};
+ G.forEach(([k,ab])=>{
+  const bb=(b[norm(k)]||0)+(b[norm(ab)]||0),e=(+S.attr[k]||0)+bb,m=mult(e);
+  A[k]={f:3*e,m};CUR.attr[norm(k)]=CUR.attr[norm(ab)]=e;
+  $$(`[data-pct="${k}"]`).forEach(x=>x.textContent=Math.round(m*1000)/10+"%");
+  const t=$(`[data-bon="${k}"]`);t.textContent=bb?`(${bb>0?"+":""}${bb})`:"";t.className=bb>0?"up":"dn"});
+ $$(".row").forEach(r=>{
+  const n=r.dataset.n,a=A[r.dataset.a],p=S.pts[n]||0,t=S.temp[n]||0,sb=(b[norm(n)]||0)+(n.includes("&")?b[norm(n.replace("&","and"))]||0:0);
+  spent+=p;
+  const D=S.diff,raw=a.f+Math.floor(p*a.m)+sb,base=clamp(raw),fin=clamp(raw+t+D);
+  r._t=fin;CUR.skill[norm(n)]=CUR.skill[norm(n.replace("&","and"))]=base;CUR.fin[norm(n)]=CUR.fin[norm(n.replace("&","and"))]=fin;
+  const nm=r.querySelector(".nm");
+  nm.textContent=n+(sb?" ✦":"");
+  nm.title=`Base ${a.f} + (${p} × ${Math.round(a.m*1000)/10}%)`+(sb?` ${sb>0?"+":""}${sb} bonus`:"")+(t?` ${t>0?"+":""}${t} temp`:"")+(D?` ${D>0?"+":""}${D} difficulty`:"")+` · d100 under ${fin}`;
+  r.querySelector(".eff").innerHTML=base+(t||D?` <small class="${t+D>0?"up":t+D<0?"dn":""}">→${fin}</small>`:"");
+  r.querySelector("[data-pts]").classList.toggle("dn",p>cap);
+  r.querySelector("[data-temp]").className=t>0?"up":t<0?"dn":""});
+ const pe=$("#pool");pe.textContent=`${spent} / ${pool}`;pe.className=spent>pool?"dn":spent===pool?"up":"";
+ if(dry)return;
+ renderPts(spent,pool);
+ $("#cap").textContent=cap;$("#lcount").textContent=Object.keys(L.all).length?Object.keys(L.all).length+" entries loaded":"empty";renderFeats();renderVis();renderDossier();renderArmory();renderLog();
+ save();renderChars();renderFeatWarn()}
+
+function roll(r){
+ const t=r._t,d=Math.floor(Math.random()*100)+1,ok=d<=t,el=$("#roll");
+ el.style.display="block";
+ el.innerHTML=`🎲 <b>${esc(r.dataset.n)}</b> ${d} ${ok?"≤":">"} ${t} · <b class="${ok?"up":"dn"}">${ok?"SUCCESS":"FAILURE"}</b>`;
+ addRoll({n:r.dataset.n,d,v:t,ok,df:S.diff,k:"skill"})}
+
+// Roll a dice expression like "2d6+3", "d8", "1d6+1d4-1". Trailing text ("2d6 fire") is kept as rest.
+// Returns null when the text doesn't start with a dice expression.
+function rollDice(expr){const m=String(expr).match(/^\s*((?:\d*d\d+|\d+)(?:\s*[+-]\s*(?:\d*d\d+|\d+))*)(.*)$/i);
+ if(!m||!/d/i.test(m[1]))return null;let total=0;const parts=[];
+ for(const[,sg,n,f,k]of m[1].replace(/\s+/g,"").matchAll(/([+-]?)(?:(\d*)d(\d+)|(\d+))/gi)){const neg=sg==="-",pre=neg?"−":parts.length?"+":"";
+  if(f){const r=Array.from({length:Math.min(100,+n||1)},()=>1+Math.floor(Math.random()*Math.max(1,+f))),s=r.reduce((a,b)=>a+b,0);
+   total+=neg?-s:s;parts.push(pre+"["+r.join(",")+"]")}
+  else{total+=neg?-k:+k;parts.push(pre+k)}}
+ return{total:Math.max(0,total),detail:parts.join(" "),rest:m[2].trim()}}
+const dmgText=(expr,dm)=>`${expr}: ${dm.detail}`;
+$("#dicef").addEventListener("submit",e=>{e.preventDefault();const v=$("#dice").value.trim(),out=$("#dicer");if(!v)return;
+ const r=rollDice(v);
+ if(!r||r.rest){out.className="dn";out.textContent="Try something like 3d6+2";return}
+ out.className="";out.innerHTML=`<b class="up">${r.total}</b> <small>${esc(r.detail)}</small>`;
+ addRoll({n:v,k:"dice",t:r.total,x:r.detail})});
+const DIFFN={30:"Trivial",20:"Effortless",10:"Simple","-10":"Difficult","-20":"Challenging","-30":"Complicated"};
+function addRoll(e){S.rolls.unshift(e);S.rolls.length=Math.min(S.rolls.length,10);renderLog();save()}
+function renderLog(){
+ const dmg=e=>e.dmg!=null&&!isNaN(+e.dmg)?` · <b>${+e.dmg} dmg</b>`:"";
+ const rows=S.rolls.map(e=>{
+  if(e.k==="dice")return `<div class="rl"><span><b>🎲 ${esc(e.n)}</b>${e.x?` <small>${esc(e.x)}</small>`:""}</span><b>${+e.t}</b></div>`;
+  if(e.k==="cast")return `<div class="rl"><span><b>${esc(e.n)}</b>${dmg(e)}${e.x?` <small>${esc(e.x)}</small>`:""}</span><b class="up">CAST</b></div>`;
+  const atk=e.k==="atk",ok=!!e.ok,df=+e.df||0;
+  return `<div class="rl"><span><b>${esc(e.n)}</b> ${+e.d} ${ok?"≤":">"} ${+e.v}${df?` <small>${esc(DIFFN[df]||"")} ${df>0?"+":""}${df}</small>`:""}${dmg(e)}${e.x?` <small>${esc(e.x)}</small>`:""}</span><b class="${ok?"up":"dn"}">${atk?(ok?"HIT":"MISS"):(ok?"SUCCESS":"FAILURE")}</b></div>`}).join("");
+ $$("[data-rlog]").forEach(el=>el.innerHTML=`<div class="ch"><span>ROLL LOG</span><span>${S.rolls.length?`<button data-rclear>Clear</button>`:"last 10"}</span></div>${rows||`<div class="sub" style="margin:0">Nothing yet. Roll a skill, attack, or cast a spell.</div>`}`)}
+document.addEventListener("click",e=>{if(!e.target.closest("[data-rclear]"))return;S.rolls=[];renderLog();save()});
+
+document.addEventListener("input",e=>{
+ const t=e.target,d=t.dataset,v=parseFloat(t.value);
+ if("name" in d){S.name=t.value;sizeName()}
+ else if("lvl" in d){if(lvBase==null)lvBase=CUR.lvl;S.level=v>0?v:1}
+ else if("attr" in d)S.attr[d.attr]=isNaN(v)?0:v;
+ else if("pts" in d){if(v>0)S.pts[d.pts]=Math.floor(v);else delete S.pts[d.pts]}
+ else if("temp" in d){if(v)S.temp[d.temp]=v;else delete S.temp[d.temp]}
+ else if(t.id==="feats")S.feats=t.value;
+ else return;
+ update()});
+
+document.addEventListener("click",e=>{
+ const n=e.target.closest(".nm");
+ if(n){roll(n.closest(".row"));return}
+ const id=e.target.id,io=$("#io"),msg=$("#msg");
+ if(id==="clr"){S.temp={};fill();update()}
+ else if(id==="exp"){io.value=JSON.stringify(S,null,1);io.select();msg.textContent="Copy this text to keep or share the character."}
+ else if(id==="imp"){let o;try{o=fix(JSON.parse(io.value))}catch(err){msg.textContent="Couldn’t read that JSON. Paste an exported character.";return}
+  addChar(o);msg.textContent=`Imported ${o.name} as a new character.`}
+ else if(id==="dl"){const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:"application/json"}));
+  a.download=(S.name.replace(/[\\/:*?"<>|]+/g,"").trim()||"character")+".json";document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);msg.textContent="Downloaded "+a.download+"."}
+ else if(id==="newc"){addChar(fix(DEF));msg.textContent="New character created."}
+ else if(id==="dupc"){const o=fix(JSON.parse(JSON.stringify(S)));o.name=(S.name+" copy").slice(0,24);addChar(o);msg.textContent="Duplicated."}
+ else if(id==="delc"){if(!confirm(`Delete ${S.name}? This can’t be undone unless you download it first.`))return;
+  const was=S.name;LS.del("char-"+IDX.cur);delete MEM[IDX.cur];IDX.list=IDX.list.filter(c=>c.id!==IDX.cur);
+  if(IDX.list.length)loadChar(IDX.list[0].id);else addChar(fix(DEF));msg.textContent=`Deleted ${was}.`}});
+
+// Switch to a stored character without saving the current one first (callers save when needed)
+function loadChar(id){IDX.cur=id;lvBase=null;let o;try{o=MEM[id]||fix(LS.get("char-"+id)||DEF)}catch(e){o=fix(DEF)}S=o;
+ fsel=null;$("#atk").textContent="";$("#roll").style.display="none";fill();update()}
+function addChar(o){if(IDX.list.some(c=>c.id===IDX.cur))save();const id=newId();IDX.list.push({id,name:o.name});MEM[id]=o;loadChar(id)}
+function renderChars(){const o=IDX.list.map(c=>`<option value="${c.id}"${c.id===IDX.cur?" selected":""}>${esc((c.id===IDX.cur?S.name:c.name)||"Unnamed")}</option>`).join("");
+ setHTML($("#chars"),o);setHTML($("#chars2"),o+`<option value="__new">+ New character…</option>`);
+ $("#ccount").textContent=IDX.list.length+(IDX.list.length===1?" character":" characters")}
+document.addEventListener("change",e=>{const t=e.target;
+ if(t.id==="chars2"&&t.value==="__new")addChar(fix(DEF));
+ else if((t.id==="chars"||t.id==="chars2")&&t.value!==IDX.cur){save();loadChar(t.value);$("#msg").textContent=""}
+ else if(t.id==="cfile"||t.id==="lfile"){const f=t.files[0];t.value="";if(!f)return;
+  f.text().then(txt=>{if(t.id==="lfile"){$("#lib").value=txt;$("#loadlib").click();return}
+   let o;try{o=fix(JSON.parse(txt))}catch(err){$("#msg").textContent=`Couldn’t read ${f.name}. Is it an exported character?`;return}
+   addChar(o);$("#msg").textContent=`Opened ${o.name} as a new character.`})}});
+
+document.addEventListener("keydown",e=>{
+ if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("nm")){e.preventDefault();roll(e.target.closest(".row"))}
+ else if((e.key==="Enter"||e.key===" ")&&e.target.dataset&&e.target.dataset.sel){e.preventDefault();fsel=e.target.dataset.sel;renderFeats();const n=[...$$("[data-sel]")].find(x=>x.dataset.sel===fsel);if(n)n.focus()}});
+
+/* library, feats and vis */
+let L={by:{},all:{}},CUR={lvl:1,attr:{},skill:{},fin:{}},fk="feat",fsel=null,tab="char";
+const KINDS=[["feat","Feats"],["origin-feature","Origin features"],["career-feature","Career features"]];
+const EL=[["Aer","🜁","#e6c229"],["Aqua","🜄","#3b82f6"],["Ignis","🜂","#ef4444"],["Ordo","✺","#9aa5b8"],["Perditio","❖","#8b5cf6"],["Terra","🜃","#22c55e"]];
+const nm=x=>{x=String(x).trim();return x.startsWith("[[")&&x.endsWith("]]")?x.slice(2,-2).split("|")[0].trim():x};
+const cost=it=>it?Math.max(1,+it.Cost||1):1;
+const featLeft=()=>Math.floor(CUR.lvl/2)-S.got.feat.reduce((s,n)=>s+cost(L.all[norm(n)]),0);
+function renderPts(spent,pool){const fl=featLeft();
+ $("#cpts").innerHTML=`<div class="tl" title="Skill points spent / available"><span>SKILL PTS</span><b class="${spent>pool?"dn":spent===pool?"up":""}">${spent} / ${pool}</b></div><div class="tl" title="Feat points remaining"><span>FEAT PTS</span><b class="${fl<0?"dn":""}">${fl}</b></div>${lvSummary()}`}
+// Level-up note: what changed since the level was first edited (lvBase), until dismissed
+let lvBase=null;
+function lvSummary(){if(lvBase==null||lvBase===CUR.lvl)return"";const a=lvBase,b=CUR.lvl,d=b-a,s=d>0?"+":"−",n=Math.abs(d);
+ const fe=Math.floor(b/2)-Math.floor(a/2),parts=[`${s}${n*40} skill pts`,`${s}${n*5} skill cap`];
+ if(fe)parts.push(`${fe>0?"+":"−"}${Math.abs(fe)} feat pt${Math.abs(fe)>1?"s":""}`);
+ const un=d>0?["origin","career"].flatMap(k=>{const p=(L.by[k]||[]).find(x=>norm(x.name)===norm(S[k]));
+  return p?linked(k,p).filter(f=>{const r=num(f.Level_req);return r>a&&r<=b&&prereq(f).ok}).map(f=>f.name):[]}):[];
+ return `<div class="lvup" role="status"><div class="tl"><b class="${d>0?"up":"dn"}">LVL ${a} → ${b}</b><button data-lvx aria-label="Dismiss level summary">×</button></div>${parts.join(" · ")}${un.length?`<br><span class="up">Unlocked:</span> ${un.map(esc).join(", ")}`:""}</div>`}
+document.addEventListener("click",e=>{if(e.target.closest("[data-lvx]")){lvBase=null;update()}});
+const vis=n=>S.vis[n]||(S.vis[n]={cur:0,max:25});
+// Load a library, skipping entries that aren't objects or have no name. Returns {n: kept, skip: dropped}.
+function setLib(o){if(!o||typeof o!=="object"||Array.isArray(o))throw new Error("Library must be a JSON object");
+ const by={},all={};let n=0,skip=0;
+ for(const[k,a]of Object.entries(o)){if(!Array.isArray(a))continue;
+  by[k]=a.filter(i=>{const ok=i&&typeof i==="object"&&i.name!=null&&String(i.name).trim()!=="";if(!ok)skip++;return ok})
+   .map(i=>typeof i.name==="string"?i:{...i,name:String(i.name)});
+  by[k].forEach(i=>{all[norm(i.name)]=i;n++})}
+ L={by,all};return{n,skip}}
+function showTab(){$$("[data-tab]").forEach(x=>x.hidden=x.dataset.tab!==tab);$$("[data-go]").forEach(b=>b.classList.toggle("cur",b.dataset.go===tab))}
+
+function prereq(it){const r=[];let ok=true;const add=(l,m)=>{r.push([l,m]);if(!m)ok=false};
+ for(const[k,v]of Object.entries(it)){if(!/_req$/i.test(k)||!v)continue;
+  const w=k.slice(0,-4),q=norm(w),l=[].concat(v).map(nm);
+  if(q==="level")add("Level "+v,CUR.lvl>=+v);
+  else if(q==="career"||q==="origin")add(w+": "+l.join(" / "),l.some(x=>norm(x)===norm(S[q])));
+  else if(q==="feat")l.forEach(x=>add("Feat: "+x,S.got.feat.some(y=>norm(y)===norm(x))));
+  else if(q in CUR.attr)add(w+" "+v,CUR.attr[q]>=+v);
+  else if(q in CUR.skill)add(w.replace(/_/g," ")+" "+v,CUR.skill[q]>=+v)}
+ return{r,ok}}
+
+function autoFeat(k2){const k=k2.split("-")[0],parent=(L.by[k]||[]).find(x=>norm(x.name)===norm(S[k]));
+ return parent?linked(k,parent).filter(f=>prereq(f).ok):[]}
+const gotNames=k2=>k2==="feat"?S.got.feat:autoFeat(k2).map(f=>f.name);
+
+function renderFeats(){
+ $("#fk").innerHTML=KINDS.map(([k,l])=>`<button data-fk="${k}"${k===fk?` class="cur"`:""}>${l}</button>`).join("");
+ const auto=fk!=="feat",all=L.by[fk]||[],got=gotNames(fk),has=n=>got.some(x=>norm(x)===norm(n));
+ const left=featLeft();
+ $("#fpts").textContent=left;$("#fpts").className=left<0?"dn":"";
+ const can=it=>has(it.name)||(!auto&&prereq(it).ok&&left>=cost(it));
+ const items=S.showAll?all:all.filter(i=>has(i.name));
+ $("#fall").checked=S.showAll;
+ const fl=$("#flist"),keep=fl.dataset.kind===fk?fl.scrollTop:0;fl.dataset.kind=fk;
+ $("#flist").innerHTML=items.length?items.map(it=>{const h=has(it.name),c=can(it);
+  return `<div class="tank it${it.name===fsel?" sel":""}${c?"":" lock"}" data-sel="${esc(it.name)}" role="button" tabindex="0" aria-pressed="${it.name===fsel}"><div class="tl"><span>${esc(it.name)}</span><small class="${h?"up":""}">${h?"✓ ACQUIRED":c?"COST "+cost(it):"🔒 LOCKED"}</small></div></div>`}).join(""):`<div class="sub">${all.length?(auto?"None acquired yet. They’re granted automatically by your "+fk.split("-")[0]+" as you meet their requirements.":"No feats acquired yet.")+" Tick Show all to browse every entry.":"Nothing here yet. Load your library on the Library &amp; saves tab."}</div>`;
+ fl.scrollTop=keep;
+ const it=items.find(i=>i.name===fsel);
+ $("#finfo").innerHTML=it?`<div class="tank"><div class="tl"><b>${esc(it.name)}</b>${fk==="feat"&&!has(it.name)?`<small class="sub" style="margin:0">Cost ${cost(it)}</small>`:""}</div><div class="tags">${prereq(it).r.map(([l,m])=>`<span class="${m?"up":"dn"}">${m?"✓":"⚠"} ${esc(l)}</span>`).join("")||`<span>No prerequisites</span>`}</div><div class="sub">${esc(it.Description||it.Effect||"No description.")}</div>${auto?`<div class="sub ${has(it.name)?"up":""}" style="margin-top:10px">${has(it.name)?"✓ Acquired. Granted by your "+fk.split("-")[0]+".":"🔒 Granted automatically once your "+fk.split("-")[0]+" and the requirements above match."}</div>`:`<div class="btns"><button data-act="${has(it.name)?"drop":"take"}" data-it="${esc(it.name)}"${can(it)?"":" disabled"}>${has(it.name)?"× Remove":can(it)?"✓ Acquire":"🔒 Locked"}</button></div>`}</div>`:`<div class="tank"><div class="sub" style="margin:0">Select an entry to read it.</div></div>`}
+
+function renderVis(){
+ const VF=S.vf,matchVF=sp=>!VF.length||EL.some(([n])=>VF.includes(n)&&+sp[n+"_Cost"]>0);
+ $("#cname").textContent="Crucible: "+(S.crucible||"none");
+ $("#cruc").innerHTML=`<option value="">Equip crucible…</option>`+(L.by.crucible||[]).map(c=>`<option>${esc(c.name)}</option>`).join("");
+ $("#learn").innerHTML=`<option value="">+ Learn spell…${VF.length?" (filtered)":""}</option>`+(L.by.spell||[]).filter(x=>!S.spells.some(y=>norm(y)===norm(x.name))&&matchVF(x)).map(x=>`<option>${esc(x.name)}</option>`).join("");
+ setHTML($("#vtanks"),EL.map(([n,y,c])=>{const v=vis(n),pc=v.max>0?Math.min(100,Math.max(0,v.cur/v.max*100)):0;
+  return `<div class="tank"><div class="tl"><span style="color:${c}">${y} ${n}</span><span><input type="number" data-vis="${n}" data-f="cur" value="${v.cur}" aria-label="${n} current"> / <input type="number" data-vis="${n}" data-f="max" value="${v.max}" aria-label="${n} max"></span></div><div class="bar"><i style="width:${pc}%;background:${c}"></i></div><div class="btns">${[-5,-1,1,5].map(x=>`<button data-vd="${x}" data-el="${n}">${x>0?"+":""}${x}</button>`).join("")}</div></div>`}).join(""));
+ const known=S.spells.map(n=>L.all[norm(n)]).filter(Boolean);
+ const shown=known.filter(matchVF);
+ $("#vfilter").innerHTML=`<b>Filter</b>`+EL.map(([n,y,c])=>`<button data-vf="${n}" aria-pressed="${VF.includes(n)}" class="${VF.includes(n)?"cur":""}" style="color:${c}">${y} ${n}</button>`).join("")+(VF.length?`<button data-vf="">Clear</button><span class="sub" style="margin:0">${shown.length} of ${known.length}</span>`:"");
+ $("#vspells").innerHTML=shown.map(sp=>{
+  const cs=EL.filter(([n])=>+sp[n+"_Cost"]>0),ok=cs.every(([n])=>vis(n).cur>=+sp[n+"_Cost"]);
+  return `<div class="tank${ok?"":" lock"}"><div class="tl"><b>${esc(sp.name)} <small>${esc([sp.School,sp.Tier!=null?"T"+sp.Tier:""].filter(Boolean).join(" · "))}</small></b><span><button data-cast="${esc(sp.name)}"${ok?"":" disabled"}>${ok?"⚡ Cast":"No vis"}</button> <button data-forget="${esc(sp.name)}" aria-label="Forget ${esc(sp.name)}">×</button></span></div><div class="sub">${esc(sp.Description||"")}</div><div class="tags">${cs.length?cs.map(([n,y,c])=>`<span style="color:${vis(n).cur>=+sp[n+"_Cost"]?c:"var(--bad)"}">${y} ${sp[n+"_Cost"]} ${n}</span>`).join(""):"<span>Cantrip · 0 vis</span>"}</div></div>`}).join("")||`<div class="sub">${known.length?"No known spells match the filter.":"No known spells. Load your library, then pick one under Learn spell."}</div>`}
+
+document.addEventListener("click",e=>{const g=e.target.closest("[data-vf]");if(!g)return;const v=g.dataset.vf;
+ S.vf=!v?[]:S.vf.includes(v)?S.vf.filter(x=>x!==v):[...S.vf,v];save();renderVis()});
+
+document.addEventListener("click",e=>{
+ const g=e.target.closest("[data-go],[data-fk],[data-sel],[data-act],[data-vd],[data-cast],[data-forget],#refill,#loadlib");if(!g)return;
+ const d=g.dataset;
+ if(d.go){tab=d.go;showTab()}
+ else if(d.fk){fk=d.fk;fsel=null;renderFeats()}
+ else if(d.sel){fsel=d.sel;renderFeats()}
+ else if(d.act&&fk==="feat"){const a=S.got[fk];S.got[fk]=d.act==="take"?(a.some(x=>norm(x)===norm(d.it))?a:[...a,d.it]):a.filter(x=>norm(x)!==norm(d.it));update()}
+ else if(d.vd){const v=vis(d.el);v.cur=Math.max(0,Math.min(v.max,v.cur+ +d.vd));update()}
+ else if(d.cast){const sp=L.all[norm(d.cast)];if(!sp)return;const paid=[];
+  EL.forEach(([n])=>{const c=+sp[n+"_Cost"]||0;if(c){vis(n).cur=Math.max(0,vis(n).cur-c);paid.push(c+" "+n)}});
+  const dm=sp.Damage?rollDice(sp.Damage):null;
+  addRoll({n:sp.name,k:"cast",dmg:dm?dm.total:null,x:[paid.join(", ")||"0 vis",sp.Damage?(dm?dmgText(sp.Damage,dm):"DMG "+sp.Damage):""].filter(Boolean).join(" · ")});
+  update()}
+ else if(d.forget){S.spells=S.spells.filter(x=>norm(x)!==norm(d.forget));update()}
+ else if(g.id==="refill"){EL.forEach(([n])=>{vis(n).cur=vis(n).max});update()}
+ else if(g.id==="loadlib"){const m=$("#lmsg");
+  let o,r;try{o=JSON.parse($("#lib").value);r=setLib(o)}catch(err){m.textContent="Couldn’t read that JSON. Paste the exporter output.";return}
+  let kept=true;try{localStorage.setItem("lib-v1",JSON.stringify(o))}catch(x){kept=false}
+  update();m.textContent=`Loaded ${r.n} ${r.n===1?"entry":"entries"}.`+(r.skip?` Skipped ${r.skip} without a name.`:"")+(kept?"":" Couldn’t store it in this browser (too big or storage blocked), so load it again next time.")}});
+
+document.addEventListener("change",e=>{
+ const t=e.target,d=t.dataset;
+ if(t.id==="diff"){S.diff=+t.value;update()}
+ else if(d.vis){const v=vis(d.vis);v[d.f]=Math.max(0,+t.value||0);if(v.cur>v.max)v.cur=v.max;update()}
+ else if(t.id==="learn"&&t.value){S.spells.push(t.value);update()}
+ else if(t.id==="cruc"&&t.value){const c=(L.by.crucible||[]).find(x=>x.name===t.value);
+  if(c){S.crucible=c.name;EL.forEach(([n])=>{const v=vis(n);v.max=+c["Vis_"+n+"_Max"]||0;if(v.cur>v.max)v.cur=v.max});update()}}});
+
+document.addEventListener("change",e=>{if(e.target.id==="fall"){S.showAll=e.target.checked;save();renderFeats();return}const d=e.target.dataset;if(d.pick){S[d.pick]=e.target.value.trim();update()}});
+document.addEventListener("change",e=>{const sl=e.target.dataset.aslot;if(!sl)return;S.arm=S.arm.filter(n=>slotOf(n)!==sl);if(e.target.value)S.arm.push(e.target.value);update()});
+document.addEventListener("click",e=>{const g=e.target.closest("[data-open]");if(!g)return;
+ const[k,n]=g.dataset.open.split("|");fk=k;fsel=n;if(!gotNames(k).some(x=>norm(x)===norm(n)))S.showAll=true;tab="feats";showTab();renderFeats();window.scrollTo(0,0)});
+
+const num=(x,d=0)=>{const v=Number(x);return x==null||x===""||isNaN(v)?d:v};
+const W=n=>L.all[norm(n)];
+const opts=(label,arr)=>`<option value="">${label}</option>`+arr.map(c=>`<option>${esc(c.name)}</option>`).join("");
+
+// Dropping to 0 HP adds Dying (the library's entry if it has one); healing above 0 clears it.
+// Only reacts to the change itself, so you can still clear Dying by hand while at 0.
+function hpChanged(prev){const now=S.hp,isD=n=>norm(n)==="dying";
+ if(prev>0&&now<=0&&!S.conds.some(isD))S.conds.push(((L.by.condition||[]).find(c=>isD(c.name))||{name:"Dying"}).name);
+ else if(prev<=0&&now>0){S.conds.filter(isD).forEach(n=>delete S.cdur[n]);S.conds=S.conds.filter(n=>!isD(n))}}
+function renderDossier(){
+ const b=bonuses(),maxE=Math.max(1,S.maxHp+(b.maxhp||0)),hp=Math.max(0,Math.min(maxE,S.hp)),pc=hp/maxE*100,col=pc<=25?"var(--bad)":pc<=50?"#d9822b":"var(--ok)";
+ const armT=S.armorBase+S.arm.reduce((a,n)=>a+num((W(n)||{}).Armor),0)+(b.armor||0);
+ const ico=d=>`<svg class="ico" viewBox="0 0 24 24" fill="currentColor" fill-opacity=".2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+ const P=[["Armor",ico("M12 2.5 4 5.5v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10v-6z")+" ARMOR","armorBase",armT,""],
+  ["Movement",ico("M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3")+" MOVEMENT","move",S.move+(b.movement||0)," hex"],
+  ["Initiative",ico("M13 2 4 14h7l-1 8 9-12h-7z")+" INITIATIVE","init",S.init+(b.initiative||0),""]];
+ setHTML($("#cpills"),P.map(([l,ab,k,t,u])=>`<div class="pill" title="${l}: base ${S[k]}, total ${t}${u}"><b>${t}${u}</b><label>${ab} <input type="number" data-c="${k}" value="${S[k]}" aria-label="${l} base"></label></div>`).join(""));
+ const down=hp<=0;$("#hp").classList.toggle("down",down);$("#dying").hidden=!down;
+ setHTML($("#hp"),`<div class="tl">${down?`<b class="dn">☠ DYING</b>`:`<b>❤ HP</b>`}<span><input type="number" data-hp="hp" value="${hp}" aria-label="Current HP"> / <input type="number" data-hp="maxHp" value="${S.maxHp}" aria-label="Base max HP">${b.maxhp?` <small class="up">(max ${maxE})</small>`:""}</span></div><div class="bar"><i style="width:${pc}%;background:${col}"></i></div><div class="btns">${[-5,-1,1,5].map(x=>`<button data-hd="${x}">${x>0?"+":""}${x}</button>`).join("")}</div>`);
+ setHTML($("#cpick"),[["origin","Origin"],["career","Career"]].map(([k,l])=>pickCard(k,l)).join(""));
+ $("#pimg").hidden=!S.portrait;$("#pnone").hidden=!!S.portrait;if(S.portrait&&$("#pimg").getAttribute("src")!==S.portrait)$("#pimg").src=S.portrait}
+
+function linked(k,it){const fk2=k+"-feature",pool=L.by[fk2]||[],named=[].concat(it.Features||[]).map(nm).map(norm);
+ return pool.filter(f=>named.includes(norm(f.name))||Object.entries(f).some(([kk,v])=>/_req$/i.test(kk)&&norm(kk.slice(0,-4))===k&&[].concat(v).map(nm).some(x=>norm(x)===norm(it.name))))
+  .sort((a,b)=>num(a.Level_req)-num(b.Level_req)||a.name.localeCompare(b.name))}
+function pickCard(k,l){
+ const list=L.by[k]||[],it=list.find(x=>norm(x.name)===norm(S[k]));
+ const ctl=list.length?`<select data-pick="${k}" aria-label="${l}"><option value="">Choose ${k==="origin"?"an origin":"a career"}…</option>${list.map(c=>`<option${it&&c.name===it.name?" selected":""}>${esc(c.name)}</option>`).join("")}${S[k]&&!it?`<option selected>${esc(S[k])}</option>`:""}</select>`
+  :`<input type="text" data-pick="${k}" value="${esc(S[k])}" placeholder="Type one" aria-label="${l}">`;
+ let body;
+ if(!list.length)body=`<div class="sub">Load your library on the Library &amp; saves tab to pick from your ${k}s.</div>`;
+ else if(!it)body=`<div class="sub">${S[k]?"Not in your library, so no bonuses apply.":`Pick ${k==="origin"?"an origin":"a career"} to see its details.`}</div>`;
+ else{const bon=bonusEntries(it),fs=linked(k,it),fk2=k+"-feature";
+  body=`${it.Description?`<div class="sub lore">${esc(it.Description)}</div>`:""}${bon.length?`<div class="tags">${bon.map(([n,v])=>`<span class="${+v>0?"up":"dn"}">${esc(n)} ${+v>0?"+":""}${+v}</span>`).join("")}</div>`:""}`+
+   (fs.length?`<div class="flinks">${fs.map(f=>{const ok=prereq(f).ok;
+    return `<button class="fl${ok?"":" lock"}" data-open="${fk2}|${esc(f.name)}"><span>${esc(f.name)}</span><small class="${ok?"up":""}">${ok?"✓ acquired":f.Level_req?"Lv "+esc(f.Level_req):"locked"}</small></button>`}).join("")}</div>`:"")}
+ return `<div class="tank"><div class="tl"><b>${l}</b>${ctl}</div>${body}</div>`}
+
+const SLOTS=["Head","Torso","Arms","Hands","Legs","Feet"];
+const SLOTWORDS={Head:"head helmet helm hat hood mask cap visor",Torso:"torso chest body vest cuirass breastplate jacket coat shirt suit plate mail",
+ Arms:"arms arm bracer bracers vambrace vambraces sleeves shoulder shoulders pauldron pauldrons",Hands:"hands hand glove gloves gauntlet gauntlets",
+ Legs:"legs leg greaves pants trousers leggings cuisses",Feet:"feet foot boot boots shoe shoes sabaton sabatons"};
+function slotOf(n){const it=W(n)||{},f=it.Slot||it.slot||it.Type||"",words=s=>String(s).toLowerCase().split(/[^a-z]+/);
+ for(const src of [f,n])for(const w of words(src))for(const sl of SLOTS)if(SLOTWORDS[sl].split(" ").includes(w))return sl;
+ return "Torso"}
+const AMMO=["Small Ammo","Standard Ammo","Rockets","Bolts","VIS Cell"];
+// A weapon's ammo type from the library (Ammo / Ammo_Type / AmmoType / Caliber), matched to AMMO when it can be
+function libAmmo(it){let v=it&&(it.Ammo??it.Ammo_Type??it.AmmoType??it.Caliber);if(Array.isArray(v))v=v[0];
+ if(typeof v!=="string"||!v.trim())return"";const s=nm(v);return AMMO.find(a=>norm(a)===norm(s))||s}
+// The type the sheet uses: the player's pick on the card ("" = untracked), else the library's
+const wtype=x=>x.type!==undefined?x.type:libAmmo(W(x.name));
+const ammoTypes=()=>{const s=new Set(AMMO);Object.keys(S.ammo).forEach(k=>s.add(k));S.wpn.forEach(x=>{const t=wtype(x);if(t)s.add(t)});return[...s]};
+const magPer=mx=>mx<=30?1:Math.max(5,Math.ceil(mx/150)*5);
+const BUL=`<svg viewBox="0 0 10 30" aria-hidden="true"><path d="M5 1C8 4.5 8.5 8 8.5 11.5h-7C1.5 8 2 4.5 5 1Z"/><rect x="1.5" y="12.5" width="7" height="13" rx=".6"/><rect x="1" y="26.5" width="8" height="2.5" rx=".6"/></svg>`;
+function mag(i,ammo,mx){const per=magPer(mx),n=Math.ceil(mx/per);let h="";
+ for(let k=1;k<=n;k++){const top=Math.min(mx,k*per),st=ammo>=top?"live":ammo>(k-1)*per?"part":"spent";
+  h+=`<button class="shot ${st}" data-shot="${i}|${k}" aria-label="Set to ${top} rounds">${BUL}</button>`}
+ return `<div class="mag" role="group" aria-label="Magazine: ${ammo} of ${mx} rounds">${h}</div>`}
+function renderArmory(){
+ let wt=0;
+ const bySlot={};S.arm=S.arm.filter(n=>{const sl=slotOf(n);if(bySlot[sl])return false;bySlot[sl]=n;return true});
+ let armSum=0;
+ setHTML($("#aslots"),SLOTS.map(sl=>{const n=bySlot[sl],it=n?W(n)||{}:{},w=num(it.Weight),av=num(it.Armor);if(n){wt+=w;armSum+=av}
+  const list=(L.by.armor||[]).filter(a=>slotOf(a.name)===sl);
+  return `<div class="tank aslot${n?" on":""}"><div class="tl"><b>${sl}</b><small class="sub" style="margin:0">${n?`+${av} ARM · ${w} lb`:"empty"}</small></div>
+   <select data-aslot="${sl}" aria-label="${sl} armor"><option value="">${list.length?"— Nothing —":"— None in library —"}</option>${list.map(a=>`<option${a.name===n?" selected":""}>${esc(a.name)}</option>`).join("")}${n&&!list.some(a=>a.name===n)?`<option selected>${esc(n)}</option>`:""}</select>
+   ${it.Notes?`<div class="sub">${esc(it.Notes)}</div>`:""}${bonTags(it)}</div>`}).join(""));
+ $("#armtot").textContent="+"+armSum+" ARM from gear";
+ const wpns=S.wpn.map((x,i)=>{const it=W(x.name)||{},mx=num(it.MaxAmmo),w=num(it.Weight),fire=mx>0,empty=fire&&x.ammo<=0,sk=it.Skill||"One-Handed";wt+=w;
+  const ty=fire?wtype(x):"",sp=ty?num(S.ammo[ty]):0,full=x.ammo>=mx,dry=ty&&sp<=0&&!full;
+  return `<div class="tank"><div class="tl"><b>${esc(x.name)}</b><span>${w} lb <button data-un="wpn" data-i="${i}" aria-label="Unequip ${esc(x.name)}">×</button></span></div><div class="sub">${esc(sk)} (${CUR.fin[norm(sk)]??`<b class="dn" title="No skill called ${esc(sk)} on this sheet">?</b>`}) · DMG ${esc(it.Damage||"—")}${it.Range?" · RNG "+esc(it.Range):""}</div>${it.Notes?`<div class="sub">${esc(it.Notes)}</div>`:""}${bonTags(it)}${fire?mag(i,x.ammo,mx):""}<div class="tl" style="margin-top:6px;flex-wrap:wrap"><button data-atk="${i}"${empty?" disabled":""} style="white-space:nowrap">${empty?"Empty, reload":fire?"🔥 Fire & roll":"⚔ Strike & roll"}</button>${fire?`<span class="sub" style="margin:0;white-space:nowrap"><b class="${empty?"dn":""}">${x.ammo}</b> / ${mx}${magPer(mx)>1?` <small>(each ▮ = ${magPer(mx)})</small>`:""} <button data-rl="${i}"${full||dry?" disabled":""}>${dry?"No spare ammo":"↻ Reload"}</button></span>`:""}</div>`+
+   (fire?`<div class="tl wammo" style="margin-top:6px"><label class="sub" style="margin:0">Ammo <select data-wtype="${i}" aria-label="${esc(x.name)} ammo type"><option value=""${ty?"":" selected"}>— untracked —</option>${ammoTypes().map(t=>`<option${t===ty?" selected":""}>${esc(t)}</option>`).join("")}</select></label><span class="sub" style="margin:0">${ty?`<b class="${sp?"":"dn"}">${sp}</b> spare`:"free reloads"}</span></div>`:"")+`</div>`}).join("");
+ const used={};S.wpn.forEach(x=>{const t=wtype(x);if(t&&num((W(x.name)||{}).MaxAmmo)>0)(used[t]=used[t]||[]).push(x.name)});
+ setHTML($("#ammo"),ammoTypes().map(t=>`<div class="tank${used[t]?" on":""}"><div class="tl"><b>${esc(t)}</b><input type="number" min="0" data-ammotype="${esc(t)}" value="${num(S.ammo[t])}" aria-label="${esc(t)} spare rounds"></div><div class="btns">${[-10,-1,1,10].map(v=>`<button data-ad="${v}" data-at="${esc(t)}" aria-label="${v>0?"Add":"Remove"} ${Math.abs(v)} ${esc(t)}">${v>0?"+":""}${v}</button>`).join("")}</div>${used[t]?`<div class="sub">${used[t].map(esc).join(", ")}</div>`:""}</div>`).join(""));
+ const gear=S.gear.map((g,i)=>{const it=g.link?W(g.link)||{}:g,uw=g.link?num(it.Weight):num(g.weight),q=num(g.qty,1);wt+=uw*q;
+  return `<div class="tank"><div class="tl">${g.link?`<b>${esc(g.link)}</b>`:`<input type="text" data-gi="${i}" data-gf="name" value="${esc(g.name||"Item")}" aria-label="Item name">`}<span>× <input type="number" data-gi="${i}" data-gf="qty" value="${q}" aria-label="Quantity"> ${g.link?uw+" lb":`<input type="number" data-gi="${i}" data-gf="weight" value="${uw}" aria-label="Unit weight"> lb`} <button data-un="gear" data-i="${i}" aria-label="Remove item">×</button></span></div>${it.Notes?`<div class="sub">${esc(it.Notes)}</div>`:""}</div>`}).join("");
+ const conds=S.conds.map((n,i)=>{const it=W(n)||{},r=S.cdur[n],dy=norm(n)==="dying";
+  return `<div class="tank${dy?" down":""}"><div class="tl"><b class="dn">${dy?"☠":"⚠"} ${esc(n)}</b><span><label class="sub" style="margin:0" title="Rounds left. Leave blank to last until cleared.">⏱ <input type="number" min="0" data-cdur="${esc(n)}" value="${r||""}" placeholder="∞" aria-label="${esc(n)} rounds left"></label> <button data-un="cond" data-i="${i}" aria-label="Clear ${esc(n)}">×</button></span></div><div class="sub">${esc(it.Effect||it.Description||(dy?"At 0 HP. Healing above 0 clears this.":""))}</div>${bonTags(it)}</div>`}).join("");
+ const mx=Math.max(10,num(CUR.attr.body)*10),over=wt>mx,pc=Math.min(100,wt/mx*100);
+ $("#load").textContent=`${over?"⚠ Overburdened ":""}${Math.round(wt*10)/10} / ${mx} lb`;$("#load").className=over?"dn":"";
+ $("#loadbar").style.width=pc+"%";$("#loadbar").style.background=over?"var(--bad)":pc>80?"#d9822b":"var(--ok)";
+ setHTML($("#conds"),conds||`<div class="sub">No active conditions.</div>`);
+ setHTML($("#wpns"),wpns||`<div class="sub">No weapons equipped.</div>`);
+ setHTML($("#gear"),gear||`<div class="sub">No items.</div>`);
+ $("#addcond").innerHTML=opts("+ Apply condition…",(L.by.condition||[]).filter(c=>!S.conds.some(x=>norm(x)===norm(c.name))));
+ $("#addwpn").innerHTML=opts("+ Equip weapon…",L.by.weapon||[]);
+ $("#additem").innerHTML=opts("+ Add item…",L.by.item||[])}
+
+document.addEventListener("click",e=>{
+ const g=e.target.closest("[data-hd],[data-un],[data-atk],[data-rl],[data-shot],[data-ad],#addcustom,#nextr");if(!g)return;
+ if(g.id==="nextr"){const gone=[];
+  S.conds=S.conds.filter(n=>{if(!S.cdur[n])return true;if(--S.cdur[n]>0)return true;delete S.cdur[n];gone.push(n);return false});
+  $("#rmsg").textContent=gone.length?`Round passed. ${gone.join(", ")} wore off.`:"Round passed.";update();return}
+ const d=g.dataset,i=+d.i;
+ if(d.hd){const m=Math.max(1,S.maxHp+(bonuses().maxhp||0)),prev=Math.min(m,S.hp);S.hp=Math.max(0,Math.min(m,prev+ +d.hd));hpChanged(prev);update()}
+ else if(d.un){
+  // Unequipping a tracked weapon puts its loaded rounds back in the pool
+  if(d.un==="cond")delete S.cdur[S.conds[i]];
+  if(d.un==="wpn"){const x=S.wpn[i],ty=wtype(x);if(ty&&x.ammo>0&&num((W(x.name)||{}).MaxAmmo)>0)S.ammo[ty]=num(S.ammo[ty])+x.ammo}
+  ({arm:S.arm,wpn:S.wpn,gear:S.gear,cond:S.conds})[d.un].splice(i,1);update()}
+ else if(d.ad){S.ammo[d.at]=Math.max(0,num(S.ammo[d.at])+ +d.ad);update()}
+ else if(d.shot){const[wi,k]=d.shot.split("|").map(Number),x=S.wpn[wi],mx=num((W(x.name)||{}).MaxAmmo),per=magPer(mx),top=Math.min(mx,k*per);x.ammo=x.ammo===top?(k-1)*per:top;update()}
+ else if(d.rl){const x=S.wpn[+d.rl],mx=num((W(x.name)||{}).MaxAmmo),ty=wtype(x),need=Math.max(0,mx-x.ammo);
+  if(!ty){x.ammo=mx;$("#atk").textContent=`↻ ${x.name} reloaded.`}
+  else{const take=Math.min(need,num(S.ammo[ty]));if(!take){$("#atk").textContent=`⚠ No spare ${ty} for ${x.name}.`;return}
+   x.ammo+=take;S.ammo[ty]=num(S.ammo[ty])-take;
+   $("#atk").textContent=`↻ ${x.name} loaded ${take} ${ty}${take<need?`, ${need-take} short`:""}. ${S.ammo[ty]} left.`}
+  update()}
+ else if(d.atk!==undefined){const x=S.wpn[+d.atk],it=W(x.name)||{},sk=it.Skill||"One-Handed",t=CUR.fin[norm(sk)];
+  if(t==null){$("#atk").innerHTML=`⚠ <b>${esc(x.name)}</b>: no skill called “${esc(sk)}”. Check the weapon’s Skill field.`;return}
+  if(num(it.MaxAmmo)>0){if(x.ammo<=0)return;x.ammo--}
+  const r=Math.floor(Math.random()*100)+1,ok=r<=t;
+  const dm=ok&&it.Damage?rollDice(it.Damage):null;
+  addRoll({n:x.name+" ["+sk+"]",d:r,v:t,ok,df:S.diff,k:"atk",dmg:dm?dm.total:null,x:ok&&it.Damage?(dm?dmgText(it.Damage,dm):"DMG "+it.Damage):""});
+  $("#atk").innerHTML=`🎯 <b>${esc(x.name)}</b> [${esc(sk)}] ${r} ${ok?"≤":">"} ${t} · <b class="${ok?"up":"dn"}">${ok?"HIT":"MISS"}</b>`+
+   (ok?(dm?` · <b>${dm.total} dmg</b>${dm.rest?" "+esc(dm.rest):""} <small>${esc(it.Damage)}: ${esc(dm.detail)}</small>`:` (${esc(it.Damage||"—")})`):"");
+  update()}
+ else if(g.id==="addcustom"){S.gear.push({name:"Field ration / salvage",qty:1,weight:1});update()}});
+
+document.addEventListener("change",e=>{
+ const t=e.target,d=t.dataset,id=t.id;
+ if(d.c){S[d.c]=num(t.value);update()}
+ else if(d.hp){const prev=S.hp;S[d.hp]=d.hp==="maxHp"?Math.max(1,num(t.value,1)):Math.max(0,num(t.value));if(d.hp==="hp")hpChanged(prev);update()}
+ else if(d.cdur!==undefined){const v=Math.floor(num(t.value));if(v>0)S.cdur[d.cdur]=v;else delete S.cdur[d.cdur];update()}
+ else if(d.ammotype!==undefined){S.ammo[d.ammotype]=Math.max(0,Math.floor(num(t.value)));update()}
+ else if(d.wtype!==undefined){S.wpn[+d.wtype].type=t.value;update()}
+ else if(d.gi!==undefined){const g=S.gear[+d.gi];if(d.gf==="name")g.name=t.value.trim()||"Item";else g[d.gf]=Math.max(0,num(t.value));update()}
+ else if(t.value&&["addcond","addwpn","additem"].includes(id)){
+  if(id==="addcond"){S.conds.push(t.value);const it=W(t.value)||{},r=Math.floor(num(it.Duration??it.Rounds));if(r>0)S.cdur[t.value]=r}
+  else if(id==="addwpn"){
+   // A weapon whose library entry names its ammo type is loaded from the pool; others come loaded
+   const mx=num((W(t.value)||{}).MaxAmmo),x={name:t.value,ammo:mx},ty=mx>0?wtype(x):"";
+   if(ty){const take=Math.min(mx,num(S.ammo[ty]));x.ammo=take;S.ammo[ty]=num(S.ammo[ty])-take}
+   S.wpn.push(x)}
+  else S.gear.push({link:t.value,qty:1});
+  update()}});
+
+document.addEventListener("input",e=>{const t=e.target;if(t.dataset.m){S[t.dataset.m]=t.value;save()}});
+
+$("#pfile").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+ r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,420/Math.max(im.width,im.height)),c=document.createElement("canvas");
+  c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+  S.portrait=c.toDataURL("image/jpeg",.8);update()};im.src=r.result};r.readAsDataURL(f)});
+
+try{setLib(JSON.parse(localStorage.getItem("lib-v1")||"{}"))}catch(e){}
+showTab();
+fill();update();
+</script>
+</body>
+</html>
