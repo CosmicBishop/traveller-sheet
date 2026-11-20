@@ -10,8 +10,13 @@ It has two looks, switched on the **Settings** tab:
   boot screen, teletype printing, glitches, monitor bezel and sound
 - **Classic** – a plain parchment sheet, in light or dark
 
-Characters save in your own browser. Use **Download .json** on the Settings tab
-to back one up or move it to another device.
+**Install it:** on a phone, use the browser's *Add to Home Screen* (or *Install
+app*). It then opens full-screen and keeps working without a signal.
+
+Characters save in your own browser. On the Settings tab, **Back up all** saves
+every character in one file (open it again to restore), and **Copy share link**
+sends one character to another device or player.
 
 The game library (feats, careers, origins, spells, gear…) is exported from an
-Obsidian vault and loaded on the Settings tab.
+Obsidian vault as `library.json`. Put that file in this folder and push it, and
+every player's sheet picks it up the next time it opens.

@@ -28,10 +28,13 @@
 
 :root[data-skin="crt"]{
 /* ====================== CRT TERMINAL LAYER ====================== */
-&{font-size:21px;background:#010201}
-body{font:21px/1.25 var(--mono);text-shadow:var(--glow);letter-spacing:.02em;
+/* Terminal font (Settings > Font): IBM Plex Mono for reading, or the VT323 pixel font */
+&{--tfont:"IBM Plex Mono",ui-monospace,Consolas,"Courier New",monospace;--tfs:16px;--tifs:16px;--motdfs:clamp(7px,1.9vw,16px);--bootfs:clamp(13px,2vw,19px)}
+&[data-font="pixel"]{--tfont:var(--mono);--tfs:21px;--tifs:20px;--motdfs:clamp(10px,2.3vw,21px);--bootfs:clamp(14px,2.4vw,24px)}
+&{font-size:var(--tfs);background:#010201}
+body{font:var(--tfs)/1.3 var(--tfont);text-shadow:var(--glow);letter-spacing:.02em;
  background:radial-gradient(ellipse at 50% 40%,var(--scr1) 0%,var(--scr2) 55%,#010201 100%) fixed;min-height:100vh}
-input,textarea,button,select,#sks,#dice,#dicer{font-family:var(--mono)!important;font-size:20px!important;text-shadow:var(--glow);letter-spacing:.02em}
+input,textarea,button,select,#sks,#dice,#dicer{font-family:var(--tfont)!important;font-size:var(--tifs)!important;text-shadow:var(--glow);letter-spacing:.02em}
 small,.sub,.pill label,.ch,.diff,.tags span{font-size:.9em}
 ::selection{background:var(--ink);color:var(--bg);text-shadow:none}
 *{scrollbar-color:var(--line) transparent}
@@ -63,7 +66,7 @@ body::after{background:radial-gradient(ellipse at center,transparent 58%,rgba(0,
 &.fx-bezel .foot #pwr{display:none}
 
 /* MOTD banner */
-.motd{margin:0 0 12px;white-space:pre;overflow-x:auto;line-height:1.1;color:var(--ink);font-size:clamp(10px,2.3vw,21px);scrollbar-width:none}
+.motd{margin:0 0 12px;white-space:pre;overflow-x:auto;line-height:1.1;color:var(--ink);font-size:var(--motdfs);scrollbar-width:none}
 .motd .art{font-size:.92em;line-height:1;color:var(--hi);text-shadow:0 0 2px var(--hi),0 0 12px rgba(var(--g),.6)}
 .motd .k,.foot .k{color:var(--dim)}
 .motd b{font-weight:normal;color:var(--hi)}
@@ -74,7 +77,8 @@ body::after{background:radial-gradient(ellipse at center,transparent 58%,rgba(0,
 .panel::before,.panel::after{display:none}
 .grid+.panel,.panel+.panel{margin-top:22px}
 .grid{gap:22px 14px;margin-top:22px}
-.panel>.ch:first-child{border:0;margin:-26px 0 8px;padding:0;align-items:center;white-space:nowrap;min-width:0}
+/* The title sits centred on the top border whatever the font: panel padding + half the border + half a line */
+.panel>.ch:first-child{border:0;margin:-26px 0 8px;margin-top:calc(-15.5px - .5lh);padding:0;align-items:center;white-space:nowrap;min-width:0}
 .panel>.ch:first-child>span{background:var(--panel);padding:0 .3em;color:var(--hi);overflow:hidden;text-overflow:ellipsis}
 .panel>.ch:first-child>span:first-child{flex:none;max-width:100%}
 /* The terminal font is wider than the original's, so skill columns need more room before going side by side */
@@ -135,6 +139,36 @@ button:hover:not(:disabled)::before,button:hover:not(:disabled)::after,.cur::bef
 .tty-on::after{content:"";display:inline-block;width:.55em;height:.95em;margin-left:2px;background:var(--ink);vertical-align:-.1em;box-shadow:var(--glow)}
 .drawin{animation:drawin .32s steps(10) backwards}
 
+/* Phones: a compact pinned tab bar (two rows instead of four) and a banner without the big title art */
+@media(max-width:640px){
+ .tabs{gap:4px;padding:6px!important}
+ .tabs button,.tabs .btn{padding:3px 6px;letter-spacing:0;font-size:14px!important}
+ .tabs button::before,.tabs button::after{content:none}
+ .tabs .diff{margin-left:0;font-size:0;gap:0}
+ .tabs .diff select{font-size:14px!important;max-width:9.5em}
+ #dice{width:5.5em}
+ .motd{font-size:11px}
+ .motd .art{display:none}
+ .panel{padding:12px 10px 10px}}
+
+/* Rolling dice tray (Settings: Rolling dice animation) */
+#dicetray{position:fixed;right:max(18px,3vw);bottom:max(18px,4vh);z-index:9994;pointer-events:none;padding:10px 14px 8px;
+ background:var(--field);border:3px double var(--line);box-shadow:0 0 0 6px rgba(0,0,0,.6),0 0 26px rgba(var(--g),.25);
+ opacity:0;transform:translateY(14px);transition:opacity .2s,transform .2s}
+#dicetray.on{display:block;opacity:1;transform:none}
+#dicetray pre{margin:0;font-family:"IBM Plex Mono",Consolas,monospace;font-size:15px;line-height:1.15;color:var(--hi);text-shadow:var(--glow)}
+#dicetray.rolling pre{transform:translateX(var(--jx,0)) rotate(var(--jr,0));transition:transform 60ms}
+#dicetray.landed pre{animation:afterglow .9s ease-out}
+#dicetray.bad pre{color:var(--bad)}
+@media(max-width:640px){#dicetray{right:10px;bottom:10px}#dicetray pre{font-size:12px}}
+
+/* ASCII portrait (Settings: Portrait drawn as ASCII art) */
+.asciiport{margin:0;width:100%;aspect-ratio:210/310;overflow:hidden;border:1px solid var(--ink);background:var(--field);
+ font-family:"IBM Plex Mono",Consolas,monospace;line-height:1;letter-spacing:0;white-space:pre;color:var(--ink);text-shadow:0 0 4px rgba(var(--g),.55);
+ display:none;align-content:center;box-shadow:0 0 14px rgba(var(--g),.35)}
+.port.has-ascii .asciiport{display:grid}
+.port.has-ascii #pimg{display:none!important}
+
 /* Afterglow: a changed value flashes white-hot and fades back like phosphor (Settings: Afterglow) */
 .flash{animation:afterglow 1.1s ease-out}
 
@@ -155,7 +189,7 @@ button:hover:not(:disabled)::before,button:hover:not(:disabled)::after,.cur::bef
 /* Boot screen */
 #boot{position:fixed;inset:0;z-index:9995;background:var(--bg);padding:6vh 6vw;display:none;cursor:pointer;overflow:hidden}
 #boot.on{display:block}
-#boot pre{margin:0;white-space:pre-wrap;font:inherit;color:var(--ink);font-size:clamp(14px,2.4vw,24px);line-height:1.3}
+#boot pre{margin:0;white-space:pre-wrap;font:inherit;color:var(--ink);font-size:var(--bootfs);line-height:1.3}
 #boot .skip{position:absolute;bottom:4vh;right:6vw;color:var(--dim)}
 
 /* Monitor bezel with power light and knobs (Settings: Monitor bezel) */

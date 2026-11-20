@@ -137,7 +137,7 @@ label{display:inline-flex;gap:6px;align-items:center}
 .btn{border:1px solid var(--line);background:var(--field);padding:4px 10px;cursor:pointer;font-size:.85rem;text-align:center}
 
 /* Pieces that only exist in the Terminal look are hidden in the Classic look */
-.motd,.foot,.bezel-bar,.crt-glass,.crt-grain,.crt-band,.crt-dot,#pwron,#boot{display:none}
+.motd,.foot,.bezel-bar,.crt-glass,.crt-grain,.crt-band,.crt-dot,#pwron,#boot,#dicetray,.asciiport{display:none}
 :root:not([data-skin="crt"]) .crt-only,:root[data-skin="crt"] .classic-only{display:none!important}
 .bezel{display:contents}
 #flist{background:var(--field);border:1px solid var(--line);padding:8px}

@@ -116,7 +116,7 @@ function calc(dry){
  const pe=$("#pool");pe.textContent=`${spent} / ${pool}`;pe.className=spent>pool?"dn":spent===pool?"up":"";
  if(dry)return;
  renderPts(spent,pool);
- $("#cap").textContent=cap;$("#lcount").textContent=Object.keys(L.all).length?Object.keys(L.all).length+" entries loaded":"empty";renderFeats();renderVis();renderDossier();renderArmory();renderLog();
+ $("#cap").textContent=cap;$("#lcount").textContent=Object.keys(L.all).length?Object.keys(L.all).length+" entries"+(LIBSRC?" · "+LIBSRC:""):"empty";renderFeats();renderVis();renderDossier();renderArmory();renderLog();
  save();renderChars();renderFeatWarn()}
 
 function roll(r){
@@ -169,12 +169,12 @@ document.addEventListener("click",e=>{
  const id=e.target.id,io=$("#io"),msg=$("#msg");
  if(id==="clr"){S.temp={};fill();update()}
  else if(id==="exp"){io.value=JSON.stringify(S,null,1);io.select();msg.textContent="Copy this text to keep or share the character."}
- else if(id==="imp"){let o;try{o=fix(JSON.parse(io.value))}catch(err){msg.textContent="Couldn’t read that JSON. Paste an exported character.";return}
-  addChar(o);msg.textContent=`Imported ${o.name} as a new character.`}
- else if(id==="dl"){const a=document.createElement("a");
-  a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:"application/json"}));
-  a.download=(S.name.replace(/[\\/:*?"<>|]+/g,"").trim()||"character")+".json";document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href),2000);msg.textContent="Downloaded "+a.download+"."}
+ else if(id==="imp"){let o;try{o=JSON.parse(io.value)}catch(err){msg.textContent="Couldn’t read that JSON. Paste an exported character or backup.";return}
+  msg.textContent=importData(o,"the pasted text")}
+ else if(id==="dl")msg.textContent="Downloaded "+download((S.name.replace(/[\\/:*?"<>|]+/g,"").trim()||"character")+".json",S)+"."
+ else if(id==="bkall"){const list=allChars();
+  msg.textContent="Downloaded "+download(`traveller-characters-${new Date().toISOString().slice(0,10)}.json`,{type:"traveller-backup",v:1,saved:new Date().toISOString(),characters:list})+` (${list.length} character${list.length===1?"":"s"}).`}
+ else if(id==="share")shareLink().then(m=>msg.textContent=m)
  else if(id==="newc"){addChar(fix(DEF));msg.textContent="New character created."}
  else if(id==="dupc"){const o=fix(JSON.parse(JSON.stringify(S)));o.name=(S.name+" copy").slice(0,24);addChar(o);msg.textContent="Duplicated."}
  else if(id==="delc"){if(!confirm(`Delete ${S.name}? This can’t be undone unless you download it first.`))return;
@@ -187,14 +187,45 @@ function loadChar(id){IDX.cur=id;lvBase=null;let o;try{o=MEM[id]||fix(LS.get("ch
 function addChar(o){if(IDX.list.some(c=>c.id===IDX.cur))save();const id=newId();IDX.list.push({id,name:o.name});MEM[id]=o;loadChar(id)}
 function renderChars(){const o=IDX.list.map(c=>`<option value="${c.id}"${c.id===IDX.cur?" selected":""}>${esc((c.id===IDX.cur?S.name:c.name)||"Unnamed")}</option>`).join("");
  setHTML($("#chars"),o);setHTML($("#chars2"),o+`<option value="__new">+ New character…</option>`);
- $("#ccount").textContent=IDX.list.length+(IDX.list.length===1?" character":" characters")}
+ $("#ccount").textContent=IDX.list.length+(IDX.list.length===1?" character":" characters");renderBackup()}
+
+/* ---------- backups, restores and share links ---------- */
+function download(name,obj){const a=document.createElement("a");
+ a.href=URL.createObjectURL(new Blob([JSON.stringify(obj,null,1)],{type:"application/json"}));a.download=name;
+ document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);LS.set("bk-v1",Date.now());renderBackup();return name}
+function allChars(){save();return IDX.list.map(c=>MEM[c.id]||fix(LS.get("char-"+c.id)||DEF))}
+// Characters only live in this browser, so nudge towards a backup when there isn't a recent one
+function renderBackup(){const el=$("#bkinfo");if(!el)return;const t=LS.get("bk-v1"),days=t?Math.floor((Date.now()-t)/864e5):null;
+ el.textContent=t==null?"!! No backup yet. Characters live only in this browser, so Back up all now and then.":
+  `Last backup: ${days===0?"today":days===1?"yesterday":days+" days ago"}`+(days>=14?". Time for a new one.":"");
+ el.className="sub"+(t==null||days>=14?" dn":"")}
+// A backup file adds every character in it (skipping exact copies already here); anything else is one character
+function importData(o,label){
+ if(o&&o.type==="traveller-backup"&&Array.isArray(o.characters)){save();
+  const have=new Set(IDX.list.map(c=>JSON.stringify(MEM[c.id]||fix(LS.get("char-"+c.id)||DEF))));let n=0,skip=0;
+  o.characters.forEach(c=>{let f;try{f=fix(c)}catch(e){return}if(have.has(JSON.stringify(f))){skip++;return}
+   const id=newId();IDX.list.push({id,name:f.name});MEM[id]=f;LS.set("char-"+id,f);n++});
+  LS.set("chars-v1",IDX);renderChars();return `Restored ${n} character${n===1?"":"s"} from ${label}.`+(skip?` Skipped ${skip} already here.`:"")}
+ const c=fix(o);addChar(c);return `Opened ${c.name} as a new character.`}
+// Share links carry one character (no portrait or roll log) compressed into the address after #c=
+const b64enc=u8=>{let s="";for(let i=0;i<u8.length;i+=8192)s+=String.fromCharCode.apply(null,u8.subarray(i,i+8192));return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")};
+const b64dec=s=>Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0));
+async function pack(obj){const bytes=new TextEncoder().encode(JSON.stringify(obj));
+ if(window.CompressionStream){const st=new Blob([bytes]).stream().pipeThrough(new CompressionStream("deflate-raw"));return "z"+b64enc(new Uint8Array(await new Response(st).arrayBuffer()))}
+ return "j"+b64enc(bytes)}
+async function unpack(str){const bytes=b64dec(str.slice(1));
+ if(str[0]==="z"){const st=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));return JSON.parse(await new Response(st).text())}
+ return JSON.parse(new TextDecoder().decode(bytes))}
+async function shareLink(){const url=location.href.split("#")[0]+"#c="+await pack({...S,portrait:"",rolls:[]});
+ try{await navigator.clipboard.writeText(url);return `Share link for ${S.name} copied. Anyone who opens it can add the character (without its portrait).`}
+ catch(e){$("#io").value=url;$("#io").select();return "Couldn’t copy automatically, so the link is in the box below. Copy it from there."}}
 document.addEventListener("change",e=>{const t=e.target;
  if(t.id==="chars2"&&t.value==="__new")addChar(fix(DEF));
  else if((t.id==="chars"||t.id==="chars2")&&t.value!==IDX.cur){save();loadChar(t.value);$("#msg").textContent=""}
  else if(t.id==="cfile"||t.id==="lfile"){const f=t.files[0];t.value="";if(!f)return;
   f.text().then(txt=>{if(t.id==="lfile"){$("#lib").value=txt;$("#loadlib").click();return}
-   let o;try{o=fix(JSON.parse(txt))}catch(err){$("#msg").textContent=`Couldn’t read ${f.name}. Is it an exported character?`;return}
-   addChar(o);$("#msg").textContent=`Opened ${o.name} as a new character.`})}});
+   let o;try{o=JSON.parse(txt)}catch(err){$("#msg").textContent=`Couldn’t read ${f.name}. Is it an exported character or backup?`;return}
+   $("#msg").textContent=importData(o,f.name)})}});
 
 document.addEventListener("keydown",e=>{
  if((e.key==="Enter"||e.key===" ")&&e.target.classList&&e.target.classList.contains("nm")){e.preventDefault();roll(e.target.closest(".row"))}
@@ -292,6 +323,7 @@ document.addEventListener("click",e=>{
  else if(g.id==="refill"){EL.forEach(([n])=>{vis(n).cur=vis(n).max});update()}
  else if(g.id==="loadlib"){const m=$("#lmsg");
   let o,r;try{o=JSON.parse($("#lib").value);r=setLib(o)}catch(err){m.textContent="Couldn’t read that JSON. Paste the exporter output.";return}
+  LIBSRC="loaded by hand";
   let kept=true;try{localStorage.setItem("lib-v1",JSON.stringify(o))}catch(x){kept=false}
   update();m.textContent=`Loaded ${r.n} ${r.n===1?"entry":"entries"}.`+(r.skip?` Skipped ${r.skip} without a name.`:"")+(kept?"":" Couldn’t store it in this browser (too big or storage blocked), so load it again next time.")}});
 
@@ -452,6 +484,23 @@ $("#pfile").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return
   c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);
   S.portrait=c.toDataURL("image/jpeg",.8);update()};im.src=r.result};r.readAsDataURL(f)});
 
-try{setLib(JSON.parse(localStorage.getItem("lib-v1")||"{}"))}catch(e){}
+let LIBSRC="";
+try{setLib(JSON.parse(localStorage.getItem("lib-v1")||"{}"));if(Object.keys(L.all).length)LIBSRC="saved in this browser"}catch(e){}
 showTab();
 fill();update();
+
+// The GM's library.json, published next to this page, loads on every open so everyone has the latest.
+// The copy saved in this browser is the fallback when offline or opened from a file.
+(async function(){if(!/^https?:$/.test(location.protocol))return;
+ try{const r=await fetch("library.json",{cache:"no-cache"});if(!r.ok)return;const o=JSON.parse(await r.text());
+  let prev=null;try{prev=localStorage.getItem("lib-v1")}catch(e){}
+  const res=setLib(o),now=JSON.stringify(o);LIBSRC="from the site";try{localStorage.setItem("lib-v1",now)}catch(e){}
+  update();if(prev&&prev!=="{}"&&prev!==now)$("#lmsg").textContent=`Library updated from the site: ${res.n} entries.`}catch(e){}})();
+
+// Opening a share link (…#c=…) offers to add that character
+(async function(){const m=location.hash.match(/^#c=(.+)$/);if(!m)return;history.replaceState(null,"",location.pathname+location.search);
+ let c;try{c=fix(await unpack(m[1]))}catch(e){alert("That share link is damaged or incomplete.");return}
+ if(confirm(`Add the shared character "${c.name}" to this sheet?`)){addChar(c);$("#msg").textContent=`Added ${c.name} from a share link.`}})();
+
+// Installable and usable offline (see sw.js); only on the website, not when opened as a file
+if("serviceWorker" in navigator&&(location.protocol==="https:"||location.hostname==="localhost"))navigator.serviceWorker.register("sw.js").catch(()=>{});

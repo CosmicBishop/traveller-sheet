@@ -4,8 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Traveller Sheet</title>
+<meta name="description" content="Character sheet for a homebrew tabletop game.">
+<meta name="theme-color" content="#030805">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Traveller">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=VT323&display=swap">
 <link rel="stylesheet" href="css/sheet.css">
 <link rel="stylesheet" href="css/crt.css">
 <script>
@@ -13,7 +22,7 @@
 (function(){var o={};try{o=JSON.parse(localStorage.getItem("crt-v1")||"{}")||{}}catch(e){}
  var r=document.documentElement;if((o.skin||"crt")==="crt")r.setAttribute("data-skin","crt");
  if(o.theme==="light"||o.theme==="dark")r.setAttribute("data-theme",o.theme);
- r.setAttribute("data-phosphor",o.ph||"green")})();
+ r.setAttribute("data-phosphor",o.ph||"green");r.setAttribute("data-font",o.font||"plex")})();
 </script>
 </head>
 <body>
@@ -115,12 +124,15 @@
    <label class="sel">Look <select data-opt="skin" aria-label="Sheet look"><option value="classic">Classic</option><option value="crt">Terminal (CRT)</option></select></label>
    <label class="sel classic-only">Colours <select data-opt="theme" aria-label="Classic colours"><option value="auto">Match system</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
    <div class="grp crt-only"># Screen</div>
+   <label class="sel crt-only">Font <select data-opt="font" aria-label="Terminal font"><option value="plex">Readable (IBM Plex Mono)</option><option value="pixel">Pixel (VT323)</option></select></label>
    <label class="sel crt-only">Phosphor <select data-opt="ph" aria-label="Phosphor colour"><option value="green">Green (P1)</option><option value="amber">Amber (P3)</option><option value="white">White (P4)</option></select></label>
    <label class="crt-only"><input type="checkbox" data-opt="scan"> Scanlines, flicker &amp; roll bar</label>
    <label class="crt-only"><input type="checkbox" data-opt="glass"> Glass glare &amp; static</label>
    <label class="crt-only"><input type="checkbox" data-opt="glow"> Afterglow when values change</label>
    <label class="crt-only"><input type="checkbox" data-opt="tty"> Teletype printing &amp; tab draw-in</label>
    <label class="crt-only"><input type="checkbox" data-opt="boot"> Boot screen when the sheet opens</label>
+   <label class="crt-only"><input type="checkbox" data-opt="dice"> Rolling dice animation</label>
+   <label class="crt-only"><input type="checkbox" data-opt="ascii"> Portrait drawn as ASCII art</label>
    <div class="grp crt-only"># Extras</div>
    <label class="crt-only"><input type="checkbox" data-opt="glitch"> Signal glitches now and then</label>
    <label class="crt-only"><input type="checkbox" data-opt="bezel"> Monitor bezel with brightness &amp; contrast knobs</label>
@@ -132,14 +144,15 @@
  <section class="panel" data-tab="data" hidden>
   <div class="ch"><span>CHARACTERS</span><span id="ccount"></span></div>
   <div class="btns"><select id="chars" aria-label="Switch character"></select><button id="newc">+ New</button><button id="dupc">Duplicate</button><button id="delc">Delete</button></div>
-  <div class="sub">Changes save automatically in this browser. Download a .json file to back up or share the current character. Open a file, or paste JSON and Import, to add one as a new character.</div>
-  <div class="btns"><button id="dl">⤓ Download .json</button><label class="btn">⤒ Open file… <input type="file" id="cfile" accept=".json,application/json" hidden></label><span id="msg" class="sub" role="status"></span></div>
+  <div class="sub">Changes save automatically, but only in this browser. <b>Back up all</b> saves every character in one file; open that file to restore them, on this device or another. <b>Download</b> saves just the current character. A <b>share link</b> carries one character (without its portrait) to another device or player.</div>
+  <div id="bkinfo" class="sub" role="status"></div>
+  <div class="btns"><button id="bkall">⤓ Back up all</button><button id="dl">⤓ Download current</button><button id="share">Copy share link</button><label class="btn">⤒ Open file… <input type="file" id="cfile" accept=".json,application/json" hidden></label><span id="msg" class="sub" role="status"></span></div>
   <textarea id="io" rows="5" spellcheck="false" placeholder="Character JSON" aria-label="Character JSON"></textarea>
   <div class="btns"><button id="exp">Export as text</button><button id="imp">Import text</button></div>
  </section>
  <section class="panel" data-tab="data" hidden>
   <div class="ch"><span>LIBRARY</span><span id="lcount"></span></div>
-  <div class="sub">Open the vault exporter’s .json file, or paste its JSON and load it. It’s kept in this browser.</div>
+  <div class="sub">On the website the library loads by itself every time the sheet opens, so you always have the GM’s latest. To try a different library, open the exporter’s .json file or paste its JSON here; it lasts until the sheet is reopened.</div>
   <textarea id="lib" rows="6" spellcheck="false" aria-label="Library JSON"></textarea>
   <div class="btns"><button id="loadlib">Load library</button><label class="btn">⤒ Open file… <input type="file" id="lfile" accept=".json,application/json" hidden></label><span id="lmsg" class="sub"></span></div>
  </section>
