@@ -3,12 +3,29 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Character Screen</title>
+<title>Traveller Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&display=swap">
 <style>
+/* Classic look: parchment in light mode, warm dark in dark mode */
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
---bg:#efe4cc;--panel:#f8f0de;--ink:#2a2014;--dim:#85704f;--line:#c9b58c;--amber:#9c5a10;--hi:#5e3304;--ok:#2d7a30;--bad:#b3261e;--field:#fffaf0;color-scheme:light}
+--bg:#efe4cc;--panel:#f8f0de;--ink:#2a2014;--dim:#85704f;--line:#c9b58c;--amber:#9c5a10;--hi:#5e3304;--ok:#2d7a30;--bad:#b3261e;--field:#fffaf0;color-scheme:light;
+--mono:"VT323","Lucida Console","Courier New",monospace}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14120e;--panel:#201b14;--ink:#ead7b2;--dim:#92794f;--line:#5a4729;--amber:#d99b52;--hi:#f2c987;--ok:#62d46c;--bad:#ff6f61;--field:#120f0b;color-scheme:dark}}
 :root[data-theme="dark"]{--bg:#14120e;--panel:#201b14;--ink:#ead7b2;--dim:#92794f;--line:#5a4729;--amber:#d99b52;--hi:#f2c987;--ok:#62d46c;--bad:#ff6f61;--field:#120f0b;color-scheme:dark}
+/* Terminal look (Settings > Look). A CRT has one colour scheme, so light and dark mode match.
+   The phosphor (green / amber / white) is also picked in Settings: <html data-skin="crt" data-phosphor="…"> */
+:root[data-skin="crt"]{
+--g:102,242,131;--ink:#66f283;--dim:#2f9a4c;--line:#1c6331;--hi:#c4ffd0;--bad:#ff7a5c;
+--bg:#030805;--panel:#051109;--field:#020603;--scr1:#0a1a0e;--scr2:#040a06;
+--pfilter:grayscale(1) sepia(1) hue-rotate(75deg) saturate(3.2) brightness(.85) contrast(1.25);
+--amber:var(--hi);--ok:var(--ink);--glow:0 0 1px rgba(var(--g),.9),0 0 6px rgba(var(--g),.45),0 0 14px rgba(var(--g),.15);color-scheme:dark}
+:root[data-skin="crt"][data-phosphor="amber"]{--g:255,176,0;--ink:#ffb000;--dim:#a8720a;--line:#5e3f05;--hi:#ffe0a3;--bad:#ff5c5c;
+--bg:#070400;--panel:#0d0802;--field:#050300;--scr1:#1a1006;--scr2:#0a0602;
+--pfilter:grayscale(1) sepia(1) saturate(4) brightness(.9) contrast(1.2)}
+:root[data-skin="crt"][data-phosphor="white"]{--g:222,235,240;--ink:#dbe6ea;--dim:#7f8d92;--line:#3b4447;--hi:#ffffff;--bad:#ff7a5c;
+--bg:#050607;--panel:#0a0c0d;--field:#030405;--scr1:#14181a;--scr2:#08090a;
+--pfilter:grayscale(1) brightness(1.05) contrast(1.2)}
 html{font-size:17px;scroll-padding-top:env(safe-area-inset-top,0px)}
 *,*::before,*::after{box-sizing:inherit}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 ui-monospace,"SFMono-Regular",Menlo,Consolas,"Courier New",monospace}
@@ -64,7 +81,6 @@ label{display:inline-flex;gap:6px;align-items:center}
 .flist{display:grid;gap:6px;align-content:start;height:440px;overflow-y:auto;padding-right:6px;scrollbar-color:var(--line) transparent;scrollbar-width:thin}
 #finfo{height:440px;overflow-y:auto;scrollbar-color:var(--line) transparent;scrollbar-width:thin}
 #finfo>.tank{min-height:100%}
-#flist{background:var(--field);border:1px solid var(--line);padding:8px}
 @media(max-width:640px){.flist{height:300px}#finfo{height:auto}#finfo>.tank{min-height:0}}
 .it{cursor:pointer}.it:hover{border-color:var(--amber)}
 .it.sel{border-color:var(--amber);box-shadow:inset 3px 0 0 var(--amber)}
@@ -139,11 +155,216 @@ label{display:inline-flex;gap:6px;align-items:center}
 .ammo .btns{margin-top:6px;gap:4px}.ammo .sub{margin:6px 0 0}
 .wammo select{font-size:.85rem;padding:1px 4px}
 .btn{border:1px solid var(--line);background:var(--field);padding:4px 10px;cursor:pointer;font-size:.85rem;text-align:center}
+
+/* Pieces that only exist in the Terminal look are hidden in the Classic look */
+.motd,.foot,.bezel-bar,.crt-glass,.crt-grain,.crt-band,.crt-dot,#pwron,#boot{display:none}
+:root:not([data-skin="crt"]) .crt-only,:root[data-skin="crt"] .classic-only{display:none!important}
+.bezel{display:contents}
+#flist{background:var(--field);border:1px solid var(--line);padding:8px}
+
+/* Settings tab: look and display options (both looks) */
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:6px 24px;margin-top:6px}
+.opts label{display:flex;gap:10px;align-items:center;padding:3px 0}
+.opts label.sel{justify-content:space-between}
+.opts .grp{grid-column:1/-1;color:var(--dim);margin-top:8px}
+.opts input[type=range]{accent-color:var(--ink);flex:1;max-width:180px}
+
+/* ---- Terminal animations (only used by the Terminal look) ---- */
+@keyframes roll{from{background-position:0 0,0 -260px}to{background-position:0 0,0 110vh}}
+@keyframes flick{0%,100%{opacity:1}47%{opacity:.86}48%{opacity:1}83%{opacity:.92}}
+@keyframes blink{50%{opacity:0}}
+@keyframes boot{from{clip-path:inset(0 0 100% 0);opacity:.3}to{clip-path:inset(0 0 0 0);opacity:1}}
+@keyframes grain{0%{transform:translate(0,0)}25%{transform:translate(-7%,4%)}50%{transform:translate(5%,-6%)}75%{transform:translate(-3%,-2%)}100%{transform:translate(6%,5%)}}
+@keyframes drawin{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes afterglow{0%{color:#fff;text-shadow:0 0 3px #fff,0 0 12px rgba(var(--g),1),0 0 26px rgba(var(--g),.8)}100%{}}
+@keyframes glitch{0%{transform:translateX(-9px) skewX(-1.5deg);filter:brightness(1.4)}25%{transform:translateX(6px)}50%{transform:translateX(-3px) skewX(.8deg);filter:brightness(.8)}75%{transform:translateX(2px)}100%{transform:none;filter:none}}
+@keyframes poweroff{0%{transform:none;filter:brightness(1)}55%{transform:scale(1,.004);filter:brightness(4)}100%{transform:scale(0,.004);filter:brightness(6);opacity:0}}
+@keyframes dot{0%{opacity:1}100%{opacity:0;transform:scale(.3)}}
+
+:root[data-skin="crt"]{
+/* ====================== CRT TERMINAL LAYER ====================== */
+&{font-size:21px;background:#010201}
+body{font:21px/1.25 var(--mono);text-shadow:var(--glow);letter-spacing:.02em;
+ background:radial-gradient(ellipse at 50% 40%,var(--scr1) 0%,var(--scr2) 55%,#010201 100%) fixed;min-height:100vh}
+input,textarea,button,select,#sks,#dice,#dicer{font-family:var(--mono)!important;font-size:20px!important;text-shadow:var(--glow);letter-spacing:.02em}
+small,.sub,.pill label,.ch,.diff,.tags span{font-size:.9em}
+::selection{background:var(--ink);color:var(--bg);text-shadow:none}
+*{scrollbar-color:var(--line) transparent}
+input,textarea,select{caret-color:var(--hi)}
+
+/* Scanlines, a slow roll bar and a vignette sit over everything but never catch clicks */
+body::before,body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:9999}
+body::before{background:repeating-linear-gradient(to bottom,rgba(0,0,0,.28) 0 1px,transparent 1px 3px);animation:flick 6s infinite steps(1)}
+body::after{background:radial-gradient(ellipse at center,transparent 58%,rgba(0,0,0,.55) 100%),
+ linear-gradient(to bottom,transparent 0%,rgba(var(--g),.05) 48%,rgba(var(--g),.09) 50%,rgba(var(--g),.05) 52%,transparent 100%) 0 0/100% 260px no-repeat;
+ animation:roll 9s linear infinite}
+&.no-scan body::before{display:none}
+&.no-scan body::after{background:radial-gradient(ellipse at center,transparent 58%,rgba(0,0,0,.55) 100%);animation:none}
+
+/* Glass glare and moving static (Settings: Glass & static) */
+.crt-glass,.crt-grain{position:fixed;inset:0;pointer-events:none;z-index:9998;display:none}
+&.fx-glass .crt-glass,&.fx-glass .crt-grain{display:block}
+.crt-glass{background:linear-gradient(115deg,rgba(255,255,255,.075) 0%,rgba(255,255,255,.02) 22%,transparent 38%),
+ radial-gradient(ellipse 60% 40% at 18% 8%,rgba(255,255,255,.06),transparent 70%)}
+.crt-grain{inset:-50%;opacity:.07;mix-blend-mode:screen;animation:grain .5s steps(4) infinite;
+ background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* The screen */
+.wrap{max-width:1240px;margin:14px auto;padding:18px 22px 26px;border:2px solid rgba(var(--g),.25);border-radius:22px;
+ background:radial-gradient(ellipse at 50% 35%,var(--scr1) 0%,var(--scr2) 60%,#010201 100%);box-shadow:inset 0 0 90px rgba(0,0,0,.9),inset 0 0 22px rgba(var(--g),.06),0 0 0 10px #050706,0 0 0 12px rgba(var(--g),.18),0 0 40px rgba(var(--g),.12);
+ animation:boot .9s ease-out backwards;transform-origin:50% 50%}
+@media(max-width:640px){.wrap{margin:6px;padding:12px 12px 18px;border-radius:14px;box-shadow:inset 0 0 50px rgba(0,0,0,.9),0 0 0 4px #050706}}
+.foot{margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:var(--dim)}
+&.fx-bezel .foot #pwr{display:none}
+
+/* MOTD banner */
+.motd{margin:0 0 12px;white-space:pre;overflow-x:auto;line-height:1.1;color:var(--ink);font-size:clamp(10px,2.3vw,21px);scrollbar-width:none}
+.motd .art{font-size:.92em;line-height:1;color:var(--hi);text-shadow:0 0 2px var(--hi),0 0 12px rgba(var(--g),.6)}
+.motd .k,.foot .k{color:var(--dim)}
+.motd b{font-weight:normal;color:var(--hi)}
+.cursor{display:inline-block;width:.6em;height:1em;background:var(--ink);vertical-align:-.12em;box-shadow:var(--glow);animation:blink 1s steps(1) infinite}
+
+/* Box-drawing panels: a double-line box (╔══╗) with its title set into the top edge, ═[ TITLE ]═ */
+.panel{background:var(--panel);border:3px double var(--line);border-radius:0;padding:14px 14px 12px}
+.panel::before,.panel::after{display:none}
+.grid+.panel,.panel+.panel{margin-top:22px}
+.grid{gap:22px 14px;margin-top:22px}
+.panel>.ch:first-child{border:0;margin:-26px 0 8px;padding:0;align-items:center;white-space:nowrap;min-width:0}
+.panel>.ch:first-child>span{background:var(--panel);padding:0 .3em;color:var(--hi);overflow:hidden;text-overflow:ellipsis}
+.panel>.ch:first-child>span:first-child{flex:none;max-width:100%}
+/* The terminal font is wider than the original's, so skill columns need more room before going side by side */
+.grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr))}
+.row{grid-template-columns:minmax(0,1fr) 3.2em 3.2em minmax(3.2em,auto)}
+.nm{overflow-wrap:anywhere}
+.panel>.ch:first-child>span:first-child::before{content:"[ ";color:var(--dim)}
+.panel>.ch:first-child>span:first-child::after{content:" ]";color:var(--dim)}
+.panel>.ch:first-child>span:last-child:not(:first-child){color:var(--dim)}
+.ch{border-bottom:1px dashed var(--line);color:var(--hi)}
+.ch>span:first-child::before{content:"# ";color:var(--dim)}
+summary{color:var(--hi)}summary::marker{content:"# "}
+.tabs.panel{padding:8px 10px}
+.title{background:var(--ink);color:var(--bg);text-shadow:none;box-shadow:0 0 12px rgba(var(--g),.6)}
+.title input{color:var(--bg)!important;text-shadow:none}
+/* Inner boxes are single-line (┌──┐) */
+.tank,.pill,.led,.rlog,#roll,.aslot{background:var(--field);border:1px solid var(--line);border-radius:0}
+.pill b,.eff,#finfo .tl b,.pts b{color:var(--hi)}
+
+/* Fields: underline only, like a form on a terminal */
+input[type=number],input[type=text],input[type=search],select,textarea,#sks,#dice{background:transparent;border:0;border-bottom:1px dashed var(--dim);border-radius:0;color:var(--ink)}
+textarea{border:1px dashed var(--dim)}
+select option,select optgroup{background:var(--field);color:var(--ink)}
+input:focus,textarea:focus,select:focus,button:focus-visible,.nm:focus-visible{outline:1px solid var(--hi);outline-offset:2px;box-shadow:0 0 10px rgba(var(--g),.4)}
+input[type=checkbox]{accent-color:var(--ink)}
+
+/* Buttons: [ LABEL ], inverse video on hover */
+button,.btn{background:transparent;border:1px solid var(--line);border-radius:0;color:var(--ink);text-transform:uppercase;letter-spacing:.06em}
+button::before,.btn::before{content:"[";color:var(--dim);margin-right:2px}
+button::after,.btn::after{content:"]";color:var(--dim);margin-left:2px}
+.shot::before,.shot::after{content:none}
+button:hover:not(:disabled),.btn:hover,.cur{background:var(--ink)!important;color:var(--bg)!important;border-color:var(--ink)!important;text-shadow:none;box-shadow:0 0 12px rgba(var(--g),.55)}
+button:hover:not(:disabled)::before,button:hover:not(:disabled)::after,.cur::before,.cur::after,.btn:hover::before,.btn:hover::after{color:var(--bg)}
+.tabs{background:var(--bg)}
+.nm:hover,.it:hover{background:rgba(var(--g),.12)}
+.it.sel{box-shadow:inset 4px 0 0 var(--ink),0 0 10px rgba(var(--g),.25)}
+/* Feats tab: the list sits in the same black box as the description beside it */
+#flist{background:var(--field);border:1px solid var(--line);padding:8px}
+
+/* One phosphor: element and HP colours follow the screen, bars become block characters */
+#vtanks .tl span[style],#vfilter button[style],#vspells .tags span[style]{color:var(--ink)!important}
+#vspells .tags span[style*="var(--bad)"]{color:var(--bad)!important}
+.bar{height:14px;border:1px solid var(--line);padding:1px;background:var(--field)}
+.bar i{background:repeating-linear-gradient(90deg,var(--ink) 0 7px,transparent 7px 10px)!important;box-shadow:0 0 8px rgba(var(--g),.5)}
+.tank.down .bar i,.tl:has(#load.dn)+.bar i{background:repeating-linear-gradient(90deg,var(--bad) 0 7px,transparent 7px 10px)!important}
+.dn{text-shadow:0 0 1px var(--bad),0 0 8px color-mix(in srgb,var(--bad) 45%,transparent)}
+.tank.down{animation:blink 1.2s steps(1) infinite}
+#dying{background:var(--bad);color:var(--bg)!important;padding:0 8px;text-shadow:none;animation:blink 1s steps(1) infinite}
+.shot.live svg *{fill:var(--ink);stroke:var(--hi)}
+.shot.part svg *{fill:var(--ink);stroke:var(--ink)}
+.ico{color:var(--ink);filter:drop-shadow(0 0 3px rgba(var(--g),.6))}
+
+/* Portrait shown as a monochrome phosphor image */
+#pimg{filter:var(--pfilter);border-color:var(--ink);box-shadow:0 0 14px rgba(var(--g),.35)}
+.noimg{border-color:var(--ink);background:repeating-linear-gradient(0deg,rgba(var(--g),.04) 0 2px,transparent 2px 4px)}
+
+/* Teletype printing and tabs drawing in from the top (Settings: Teletype text) */
+.tty-on::after{content:"";display:inline-block;width:.55em;height:.95em;margin-left:2px;background:var(--ink);vertical-align:-.1em;box-shadow:var(--glow)}
+.drawin{animation:drawin .32s steps(10) backwards}
+
+/* Afterglow: a changed value flashes white-hot and fades back like phosphor (Settings: Afterglow) */
+.flash{animation:afterglow 1.1s ease-out}
+
+/* Signal glitch (Settings: Signal glitches) */
+.glitch{animation:glitch .28s steps(1)}
+.crt-band{position:fixed;left:0;right:0;height:36px;pointer-events:none;z-index:9997;display:none;
+ background:linear-gradient(to bottom,transparent,rgba(var(--g),.16) 40%,rgba(255,255,255,.12) 50%,rgba(var(--g),.16) 60%,transparent);mix-blend-mode:screen}
+.crt-band.on{display:block}
+
+/* Power off: the picture collapses to a line, then a dot */
+&.powering .wrap{animation:poweroff .55s ease-in forwards}
+&.off .wrap{visibility:hidden}
+#pwron{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9996;display:none;opacity:.55}
+&.off #pwron{display:block}
+.crt-dot{position:fixed;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:#fff;box-shadow:0 0 14px 6px rgba(var(--g),.8);z-index:9996;pointer-events:none;opacity:0}
+&.off .crt-dot{animation:dot 1.6s ease-out}
+
+/* Boot screen */
+#boot{position:fixed;inset:0;z-index:9995;background:var(--bg);padding:6vh 6vw;display:none;cursor:pointer;overflow:hidden}
+#boot.on{display:block}
+#boot pre{margin:0;white-space:pre-wrap;font:inherit;color:var(--ink);font-size:clamp(14px,2.4vw,24px);line-height:1.3}
+#boot .skip{position:absolute;bottom:4vh;right:6vw;color:var(--dim)}
+
+/* Monitor bezel with power light and knobs (Settings: Monitor bezel) */
+.bezel{display:contents}
+.bezel-bar{display:none}
+&.fx-bezel .bezel{display:block;max-width:1300px;margin:16px auto;padding:26px 26px 14px;border-radius:34px;text-shadow:none;
+ background:linear-gradient(160deg,#3b3a35 0%,#2a2925 45%,#1d1c19 100%);
+ box-shadow:inset 0 2px 0 rgba(255,255,255,.08),inset 0 -3px 6px rgba(0,0,0,.6),0 12px 40px rgba(0,0,0,.8)}
+&.fx-bezel .wrap{margin:0 auto;filter:brightness(var(--knob-b,1)) contrast(var(--knob-c,1))}
+&.fx-bezel .bezel-bar{display:flex;flex-wrap:wrap;gap:12px 22px;align-items:center;justify-content:space-between;padding:14px 10px 2px;color:#9a978c;font:14px/1.2 "Arial Narrow",Arial,sans-serif;letter-spacing:.14em;text-transform:uppercase}
+.badge{font-weight:700;color:#c9c4b2;border:1px solid #57544b;padding:3px 10px;border-radius:3px;background:linear-gradient(#45433d,#2e2d29)}
+.knobs{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+.knob{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px}
+.knob input{width:96px;accent-color:#8f8b7d}
+.bezel-bar button{font:inherit!important;font-size:12px!important;color:#c9c4b2;border:1px solid #57544b;background:linear-gradient(#45433d,#2e2d29);text-shadow:none;letter-spacing:.14em;padding:5px 12px}
+.bezel-bar button::before,.bezel-bar button::after{content:none}
+.bezel-bar button:hover:not(:disabled){background:#57544b!important;color:#fff!important;border-color:#77746a!important;box-shadow:none}
+.pwrled{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:8px;vertical-align:-1px;background:rgb(var(--g));box-shadow:0 0 8px 2px rgba(var(--g),.8)}
+&.off .pwrled{background:#3a1a12;box-shadow:none}
+@media(max-width:640px){&.fx-bezel .bezel{margin:4px;padding:12px 10px 8px;border-radius:18px}}
+
+
+@media(prefers-reduced-motion:reduce){
+ body::before,body::after,.cursor,.wrap,.tank.down,#dying,.crt-grain,.drawin,.flash,.glitch,&.powering .wrap,&.powering .crt-dot{animation:none!important}
+ &.powering .wrap{visibility:hidden}}
+
+.motd{display:block}
+}
 </style>
+<script>
+// Apply the saved look before the page draws, so it never flashes the other one
+(function(){var o={};try{o=JSON.parse(localStorage.getItem("crt-v1")||"{}")||{}}catch(e){}
+ var r=document.documentElement;if((o.skin||"crt")==="crt")r.setAttribute("data-skin","crt");
+ if(o.theme==="light"||o.theme==="dark")r.setAttribute("data-theme",o.theme);
+ r.setAttribute("data-phosphor",o.ph||"green")})();
+</script>
 </head>
 <body>
 <div class="wrap">
- <div class="tabs panel"><button data-go="char" class="cur">Character</button><button data-go="skills">Skills</button><button data-go="feats">Feats</button><button data-go="vis">Vis</button><button data-go="armory">Armory</button><button data-go="data">Library &amp; saves</button><b id="dying" class="dn" role="status" hidden>☠ DYING</b><span id="savewarn" class="dn" role="alert" style="font-size:.85rem" hidden>⚠ Not saving: browser storage is full or blocked. Download your character.</span><label class="diff">Difficulty <select id="diff" aria-label="Difficulty modifier"><option value="30">Trivial (+30)</option><option value="20">Effortless (+20)</option><option value="10">Simple (+10)</option><option value="0">Normal (0)</option><option value="-10">Difficult (-10)</option><option value="-20">Challenging (-20)</option><option value="-30">Complicated (-30)</option></select></label><form id="dicef" class="dicebox"><input type="text" id="dice" placeholder="3d6+2" aria-label="Dice to roll" autocomplete="off" spellcheck="false"><button>🎲 Roll</button><span id="dicer" role="status" aria-live="polite"></span></form></div>
+<pre class="motd" aria-label="Terminal banner"><span class="k">[traveller@terminal ~]$</span> cat /etc/motd
+<span class="art" aria-hidden="true"> _____ ____      _    __     _______ _     _     _____ ____
+|_   _|  _ \    / \   \ \   / / ____| |   | |   | ____|  _ \
+  | | | |_) |  / _ \   \ \ / /|  _| | |   | |   |  _| | |_) |
+  | | |  _ &lt;  / ___ \   \ V / | |___| |___| |___| |___|  _ &lt;
+  |_| |_| \_\/_/   \_\   \_/  |_____|_____|_____|_____|_| \_\</span>
+#################################################################
+# MOTD for <b id="m-date">…</b>
+# OPERATIVE:          <b id="m-name">…</b>
+# LEVEL:              <b id="m-lvl">…</b>
+# ORIGIN / CAREER:    <b id="m-oc">…</b>
+# HP:                 <b id="m-hp">…</b>
+#----------------------------------------------------------------
+<span class="k">[traveller@terminal ~]$</span> ./charsheet --interactive <span class="cursor"></span></pre>
+ <div class="tabs panel"><button data-go="char" class="cur">Character</button><button data-go="skills">Skills</button><button data-go="feats">Feats</button><button data-go="vis">Vis</button><button data-go="armory">Armory</button><button data-go="data">Settings</button><b id="dying" class="dn" role="status" hidden>** DYING **</b><span id="savewarn" class="dn" role="alert" style="font-size:.85rem" hidden>!! Not saving: browser storage is full or blocked. Download your character.</span><label class="diff">Difficulty <select id="diff" aria-label="Difficulty modifier"><option value="30">Trivial (+30)</option><option value="20">Effortless (+20)</option><option value="10">Simple (+10)</option><option value="0">Normal (0)</option><option value="-10">Difficult (-10)</option><option value="-20">Challenging (-20)</option><option value="-30">Complicated (-30)</option></select></label><form id="dicef" class="dicebox"><input type="text" id="dice" placeholder="3d6+2" aria-label="Dice to roll" autocomplete="off" spellcheck="false"><button>Roll</button><span id="dicer" role="status" aria-live="polite"></span></form></div>
  <div class="panel" data-tab="char" style="margin-top:14px">
   <div class="head" style="align-items:center"><div class="title">&gt; <input data-name aria-label="Character name" maxlength="24"></div><select id="chars2" aria-label="Switch character"></select></div>
   <div class="cols">
@@ -214,11 +435,31 @@ label{display:inline-flex;gap:6px;align-items:center}
     <div class="rlog" data-rlog></div>
     <div class="btns" style="margin-top:14px"><b>Items</b><select id="additem" aria-label="Add item"></select><button id="addcustom">+ Custom item</button></div>
     <div class="grid" id="gear"></div>
-    <div class="btns" style="margin-top:14px"><b>Conditions</b><select id="addcond" aria-label="Apply condition"></select><button id="nextr" title="Count down every timed condition by one round">⏭ Next round</button><span id="rmsg" class="sub" style="margin:0" role="status"></span></div>
+    <div class="btns" style="margin-top:14px"><b>Conditions</b><select id="addcond" aria-label="Apply condition"></select><button id="nextr" title="Count down every timed condition by one round">&gt;&gt; Next round</button><span id="rmsg" class="sub" style="margin:0" role="status"></span></div>
     <div class="grid" id="conds"></div>
     <textarea data-m="log" rows="3" placeholder="Weapon jams, crucible faults, active effects…" aria-label="Field log"></textarea>
    </div>
   </div>
+ </section>
+ <section class="panel" data-tab="data" hidden>
+  <div class="ch"><span>DISPLAY</span><span>saved in this browser</span></div>
+  <div class="opts" id="opts">
+   <label class="sel">Look <select data-opt="skin" aria-label="Sheet look"><option value="classic">Classic</option><option value="crt">Terminal (CRT)</option></select></label>
+   <label class="sel classic-only">Colours <select data-opt="theme" aria-label="Classic colours"><option value="auto">Match system</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+   <div class="grp crt-only"># Screen</div>
+   <label class="sel crt-only">Phosphor <select data-opt="ph" aria-label="Phosphor colour"><option value="green">Green (P1)</option><option value="amber">Amber (P3)</option><option value="white">White (P4)</option></select></label>
+   <label class="crt-only"><input type="checkbox" data-opt="scan"> Scanlines, flicker &amp; roll bar</label>
+   <label class="crt-only"><input type="checkbox" data-opt="glass"> Glass glare &amp; static</label>
+   <label class="crt-only"><input type="checkbox" data-opt="glow"> Afterglow when values change</label>
+   <label class="crt-only"><input type="checkbox" data-opt="tty"> Teletype printing &amp; tab draw-in</label>
+   <label class="crt-only"><input type="checkbox" data-opt="boot"> Boot screen when the sheet opens</label>
+   <div class="grp crt-only"># Extras</div>
+   <label class="crt-only"><input type="checkbox" data-opt="glitch"> Signal glitches now and then</label>
+   <label class="crt-only"><input type="checkbox" data-opt="bezel"> Monitor bezel with brightness &amp; contrast knobs</label>
+   <label class="crt-only"><input type="checkbox" data-opt="sound"> Sound: key clicks, hum &amp; degauss</label>
+   <label class="sel crt-only">Volume <input type="range" min="0" max="100" data-opt="vol" aria-label="Sound volume"></label>
+  </div>
+  <div class="btns"><button id="reboot" class="crt-only">Replay boot</button><button id="pwr2" class="crt-only">Power off</button><button id="optreset">Reset display</button></div>
  </section>
  <section class="panel" data-tab="data" hidden>
   <div class="ch"><span>CHARACTERS</span><span id="ccount"></span></div>
@@ -234,7 +475,11 @@ label{display:inline-flex;gap:6px;align-items:center}
   <textarea id="lib" rows="6" spellcheck="false" aria-label="Library JSON"></textarea>
   <div class="btns"><button id="loadlib">Load library</button><label class="btn">⤒ Open file… <input type="file" id="lfile" accept=".json,application/json" hidden></label><span id="lmsg" class="sub"></span></div>
  </section>
+ <div class="foot"><span class="k">[traveller@terminal ~]$</span> <button id="pwr">Power off</button></div>
 </div>
+<div class="crt-glass" aria-hidden="true"></div><div class="crt-grain" aria-hidden="true"></div><div class="crt-band" aria-hidden="true"></div><div class="crt-dot" aria-hidden="true"></div>
+<button id="pwron">Power on</button>
+<div id="boot" role="status" aria-live="polite"><pre></pre><div class="skip">[ click or press any key to skip ]</div></div>
 <script>
 const G=[
 ["Body","BDY","Δ",["Assault Rifles","Feat of Strength","Heavy Firearms","One-Handed","Shotguns","Swimming","Two-Handed","Unarmed"]],
@@ -305,7 +550,7 @@ function featIssues(){const out=[];
    else if(!KNOWN.has(norm(m[1])))out.push(at+`“${m[1].trim()}” isn’t an attribute or skill`)})});
  return out}
 function renderFeatWarn(){const w=featIssues(),el=$("#fwarn");el.hidden=!w.length;
- el.innerHTML=w.slice(0,5).map(x=>"⚠ "+esc(x)).join("<br>")+(w.length>5?`<br>…and ${w.length-5} more`:"")}
+ el.innerHTML=w.slice(0,5).map(x=>"!! "+esc(x)).join("<br>")+(w.length>5?`<br>…and ${w.length-5} more`:"")}
 // Bonuses from a library entry: a map (Body: 1, Stealth: -10) or a line ("Body +1, Stealth -10")
 function bonusEntries(it){const o=it&&it.Bonuses;if(!o)return[];
  if(typeof o==="string")return o.split(",").map(t=>t.trim().match(/^(.+?)\s*([+-]\s*\d+(?:\.\d+)?)$/)).filter(Boolean).map(m=>[m[1].trim(),Number(m[2].replace(/\s/g,""))]);
@@ -359,7 +604,7 @@ function calc(dry){
 function roll(r){
  const t=r._t,d=Math.floor(Math.random()*100)+1,ok=d<=t,el=$("#roll");
  el.style.display="block";
- el.innerHTML=`🎲 <b>${esc(r.dataset.n)}</b> ${d} ${ok?"≤":">"} ${t} · <b class="${ok?"up":"dn"}">${ok?"SUCCESS":"FAILURE"}</b>`;
+ el.innerHTML=`&gt; <b>${esc(r.dataset.n)}</b> ${d} ${ok?"≤":">"} ${t} · <b class="${ok?"up":"dn"}">${ok?"SUCCESS":"FAILURE"}</b>`;
  addRoll({n:r.dataset.n,d,v:t,ok,df:S.diff,k:"skill"})}
 
 // Roll a dice expression like "2d6+3", "d8", "1d6+1d4-1". Trailing text ("2d6 fire") is kept as rest.
@@ -382,7 +627,7 @@ function addRoll(e){S.rolls.unshift(e);S.rolls.length=Math.min(S.rolls.length,10
 function renderLog(){
  const dmg=e=>e.dmg!=null&&!isNaN(+e.dmg)?` · <b>${+e.dmg} dmg</b>`:"";
  const rows=S.rolls.map(e=>{
-  if(e.k==="dice")return `<div class="rl"><span><b>🎲 ${esc(e.n)}</b>${e.x?` <small>${esc(e.x)}</small>`:""}</span><b>${+e.t}</b></div>`;
+  if(e.k==="dice")return `<div class="rl"><span><b>[d] ${esc(e.n)}</b>${e.x?` <small>${esc(e.x)}</small>`:""}</span><b>${+e.t}</b></div>`;
   if(e.k==="cast")return `<div class="rl"><span><b>${esc(e.n)}</b>${dmg(e)}${e.x?` <small>${esc(e.x)}</small>`:""}</span><b class="up">CAST</b></div>`;
   const atk=e.k==="atk",ok=!!e.ok,df=+e.df||0;
   return `<div class="rl"><span><b>${esc(e.n)}</b> ${+e.d} ${ok?"≤":">"} ${+e.v}${df?` <small>${esc(DIFFN[df]||"")} ${df>0?"+":""}${df}</small>`:""}${dmg(e)}${e.x?` <small>${esc(e.x)}</small>`:""}</span><b class="${ok?"up":"dn"}">${atk?(ok?"HIT":"MISS"):(ok?"SUCCESS":"FAILURE")}</b></div>`}).join("");
@@ -490,10 +735,10 @@ function renderFeats(){
  $("#fall").checked=S.showAll;
  const fl=$("#flist"),keep=fl.dataset.kind===fk?fl.scrollTop:0;fl.dataset.kind=fk;
  $("#flist").innerHTML=items.length?items.map(it=>{const h=has(it.name),c=can(it);
-  return `<div class="tank it${it.name===fsel?" sel":""}${c?"":" lock"}" data-sel="${esc(it.name)}" role="button" tabindex="0" aria-pressed="${it.name===fsel}"><div class="tl"><span>${esc(it.name)}</span><small class="${h?"up":""}">${h?"✓ ACQUIRED":c?"COST "+cost(it):"🔒 LOCKED"}</small></div></div>`}).join(""):`<div class="sub">${all.length?(auto?"None acquired yet. They’re granted automatically by your "+fk.split("-")[0]+" as you meet their requirements.":"No feats acquired yet.")+" Tick Show all to browse every entry.":"Nothing here yet. Load your library on the Library &amp; saves tab."}</div>`;
+  return `<div class="tank it${it.name===fsel?" sel":""}${c?"":" lock"}" data-sel="${esc(it.name)}" role="button" tabindex="0" aria-pressed="${it.name===fsel}"><div class="tl"><span>${esc(it.name)}</span><small class="${h?"up":""}">${h?"✓ ACQUIRED":c?"COST "+cost(it):"[LOCKED]"}</small></div></div>`}).join(""):`<div class="sub">${all.length?(auto?"None acquired yet. They’re granted automatically by your "+fk.split("-")[0]+" as you meet their requirements.":"No feats acquired yet.")+" Tick Show all to browse every entry.":"Nothing here yet. Load your library on the Settings tab."}</div>`;
  fl.scrollTop=keep;
  const it=items.find(i=>i.name===fsel);
- $("#finfo").innerHTML=it?`<div class="tank"><div class="tl"><b>${esc(it.name)}</b>${fk==="feat"&&!has(it.name)?`<small class="sub" style="margin:0">Cost ${cost(it)}</small>`:""}</div><div class="tags">${prereq(it).r.map(([l,m])=>`<span class="${m?"up":"dn"}">${m?"✓":"⚠"} ${esc(l)}</span>`).join("")||`<span>No prerequisites</span>`}</div><div class="sub">${esc(it.Description||it.Effect||"No description.")}</div>${auto?`<div class="sub ${has(it.name)?"up":""}" style="margin-top:10px">${has(it.name)?"✓ Acquired. Granted by your "+fk.split("-")[0]+".":"🔒 Granted automatically once your "+fk.split("-")[0]+" and the requirements above match."}</div>`:`<div class="btns"><button data-act="${has(it.name)?"drop":"take"}" data-it="${esc(it.name)}"${can(it)?"":" disabled"}>${has(it.name)?"× Remove":can(it)?"✓ Acquire":"🔒 Locked"}</button></div>`}</div>`:`<div class="tank"><div class="sub" style="margin:0">Select an entry to read it.</div></div>`}
+ $("#finfo").innerHTML=it?`<div class="tank"><div class="tl"><b>${esc(it.name)}</b>${fk==="feat"&&!has(it.name)?`<small class="sub" style="margin:0">Cost ${cost(it)}</small>`:""}</div><div class="tags">${prereq(it).r.map(([l,m])=>`<span class="${m?"up":"dn"}">${m?"✓":"!!"} ${esc(l)}</span>`).join("")||`<span>No prerequisites</span>`}</div><div class="sub">${esc(it.Description||it.Effect||"No description.")}</div>${auto?`<div class="sub ${has(it.name)?"up":""}" style="margin-top:10px">${has(it.name)?"✓ Acquired. Granted by your "+fk.split("-")[0]+".":"LOCKED: Granted automatically once your "+fk.split("-")[0]+" and the requirements above match."}</div>`:`<div class="btns"><button data-act="${has(it.name)?"drop":"take"}" data-it="${esc(it.name)}"${can(it)?"":" disabled"}>${has(it.name)?"× Remove":can(it)?"✓ Acquire":"Locked"}</button></div>`}</div>`:`<div class="tank"><div class="sub" style="margin:0">Select an entry to read it.</div></div>`}
 
 function renderVis(){
  const VF=S.vf,matchVF=sp=>!VF.length||EL.some(([n])=>VF.includes(n)&&+sp[n+"_Cost"]>0);
@@ -507,7 +752,7 @@ function renderVis(){
  $("#vfilter").innerHTML=`<b>Filter</b>`+EL.map(([n,y,c])=>`<button data-vf="${n}" aria-pressed="${VF.includes(n)}" class="${VF.includes(n)?"cur":""}" style="color:${c}">${y} ${n}</button>`).join("")+(VF.length?`<button data-vf="">Clear</button><span class="sub" style="margin:0">${shown.length} of ${known.length}</span>`:"");
  $("#vspells").innerHTML=shown.map(sp=>{
   const cs=EL.filter(([n])=>+sp[n+"_Cost"]>0),ok=cs.every(([n])=>vis(n).cur>=+sp[n+"_Cost"]);
-  return `<div class="tank${ok?"":" lock"}"><div class="tl"><b>${esc(sp.name)} <small>${esc([sp.School,sp.Tier!=null?"T"+sp.Tier:""].filter(Boolean).join(" · "))}</small></b><span><button data-cast="${esc(sp.name)}"${ok?"":" disabled"}>${ok?"⚡ Cast":"No vis"}</button> <button data-forget="${esc(sp.name)}" aria-label="Forget ${esc(sp.name)}">×</button></span></div><div class="sub">${esc(sp.Description||"")}</div><div class="tags">${cs.length?cs.map(([n,y,c])=>`<span style="color:${vis(n).cur>=+sp[n+"_Cost"]?c:"var(--bad)"}">${y} ${sp[n+"_Cost"]} ${n}</span>`).join(""):"<span>Cantrip · 0 vis</span>"}</div></div>`}).join("")||`<div class="sub">${known.length?"No known spells match the filter.":"No known spells. Load your library, then pick one under Learn spell."}</div>`}
+  return `<div class="tank${ok?"":" lock"}"><div class="tl"><b>${esc(sp.name)} <small>${esc([sp.School,sp.Tier!=null?"T"+sp.Tier:""].filter(Boolean).join(" · "))}</small></b><span><button data-cast="${esc(sp.name)}"${ok?"":" disabled"}>${ok?"Cast":"No vis"}</button> <button data-forget="${esc(sp.name)}" aria-label="Forget ${esc(sp.name)}">×</button></span></div><div class="sub">${esc(sp.Description||"")}</div><div class="tags">${cs.length?cs.map(([n,y,c])=>`<span style="color:${vis(n).cur>=+sp[n+"_Cost"]?c:"var(--bad)"}">${y} ${sp[n+"_Cost"]} ${n}</span>`).join(""):"<span>Cantrip · 0 vis</span>"}</div></div>`}).join("")||`<div class="sub">${known.length?"No known spells match the filter.":"No known spells. Load your library, then pick one under Learn spell."}</div>`}
 
 document.addEventListener("click",e=>{const g=e.target.closest("[data-vf]");if(!g)return;const v=g.dataset.vf;
  S.vf=!v?[]:S.vf.includes(v)?S.vf.filter(x=>x!==v):[...S.vf,v];save();renderVis()});
@@ -563,7 +808,7 @@ function renderDossier(){
   ["Initiative",ico("M13 2 4 14h7l-1 8 9-12h-7z")+" INITIATIVE","init",S.init+(b.initiative||0),""]];
  setHTML($("#cpills"),P.map(([l,ab,k,t,u])=>`<div class="pill" title="${l}: base ${S[k]}, total ${t}${u}"><b>${t}${u}</b><label>${ab} <input type="number" data-c="${k}" value="${S[k]}" aria-label="${l} base"></label></div>`).join(""));
  const down=hp<=0;$("#hp").classList.toggle("down",down);$("#dying").hidden=!down;
- setHTML($("#hp"),`<div class="tl">${down?`<b class="dn">☠ DYING</b>`:`<b>❤ HP</b>`}<span><input type="number" data-hp="hp" value="${hp}" aria-label="Current HP"> / <input type="number" data-hp="maxHp" value="${S.maxHp}" aria-label="Base max HP">${b.maxhp?` <small class="up">(max ${maxE})</small>`:""}</span></div><div class="bar"><i style="width:${pc}%;background:${col}"></i></div><div class="btns">${[-5,-1,1,5].map(x=>`<button data-hd="${x}">${x>0?"+":""}${x}</button>`).join("")}</div>`);
+ setHTML($("#hp"),`<div class="tl">${down?`<b class="dn">** DYING **</b>`:`<b>HP</b>`}<span><input type="number" data-hp="hp" value="${hp}" aria-label="Current HP"> / <input type="number" data-hp="maxHp" value="${S.maxHp}" aria-label="Base max HP">${b.maxhp?` <small class="up">(max ${maxE})</small>`:""}</span></div><div class="bar"><i style="width:${pc}%;background:${col}"></i></div><div class="btns">${[-5,-1,1,5].map(x=>`<button data-hd="${x}">${x>0?"+":""}${x}</button>`).join("")}</div>`);
  setHTML($("#cpick"),[["origin","Origin"],["career","Career"]].map(([k,l])=>pickCard(k,l)).join(""));
  $("#pimg").hidden=!S.portrait;$("#pnone").hidden=!!S.portrait;if(S.portrait&&$("#pimg").getAttribute("src")!==S.portrait)$("#pimg").src=S.portrait}
 
@@ -575,7 +820,7 @@ function pickCard(k,l){
  const ctl=list.length?`<select data-pick="${k}" aria-label="${l}"><option value="">Choose ${k==="origin"?"an origin":"a career"}…</option>${list.map(c=>`<option${it&&c.name===it.name?" selected":""}>${esc(c.name)}</option>`).join("")}${S[k]&&!it?`<option selected>${esc(S[k])}</option>`:""}</select>`
   :`<input type="text" data-pick="${k}" value="${esc(S[k])}" placeholder="Type one" aria-label="${l}">`;
  let body;
- if(!list.length)body=`<div class="sub">Load your library on the Library &amp; saves tab to pick from your ${k}s.</div>`;
+ if(!list.length)body=`<div class="sub">Load your library on the Settings tab to pick from your ${k}s.</div>`;
  else if(!it)body=`<div class="sub">${S[k]?"Not in your library, so no bonuses apply.":`Pick ${k==="origin"?"an origin":"a career"} to see its details.`}</div>`;
  else{const bon=bonusEntries(it),fs=linked(k,it),fk2=k+"-feature";
   body=`${it.Description?`<div class="sub lore">${esc(it.Description)}</div>`:""}${bon.length?`<div class="tags">${bon.map(([n,v])=>`<span class="${+v>0?"up":"dn"}">${esc(n)} ${+v>0?"+":""}${+v}</span>`).join("")}</div>`:""}`+
@@ -615,16 +860,16 @@ function renderArmory(){
  $("#armtot").textContent="+"+armSum+" ARM from gear";
  const wpns=S.wpn.map((x,i)=>{const it=W(x.name)||{},mx=num(it.MaxAmmo),w=num(it.Weight),fire=mx>0,empty=fire&&x.ammo<=0,sk=it.Skill||"One-Handed";wt+=w;
   const ty=fire?wtype(x):"",sp=ty?num(S.ammo[ty]):0,full=x.ammo>=mx,dry=ty&&sp<=0&&!full;
-  return `<div class="tank"><div class="tl"><b>${esc(x.name)}</b><span>${w} lb <button data-un="wpn" data-i="${i}" aria-label="Unequip ${esc(x.name)}">×</button></span></div><div class="sub">${esc(sk)} (${CUR.fin[norm(sk)]??`<b class="dn" title="No skill called ${esc(sk)} on this sheet">?</b>`}) · DMG ${esc(it.Damage||"—")}${it.Range?" · RNG "+esc(it.Range):""}</div>${it.Notes?`<div class="sub">${esc(it.Notes)}</div>`:""}${bonTags(it)}${fire?mag(i,x.ammo,mx):""}<div class="tl" style="margin-top:6px;flex-wrap:wrap"><button data-atk="${i}"${empty?" disabled":""} style="white-space:nowrap">${empty?"Empty, reload":fire?"🔥 Fire & roll":"⚔ Strike & roll"}</button>${fire?`<span class="sub" style="margin:0;white-space:nowrap"><b class="${empty?"dn":""}">${x.ammo}</b> / ${mx}${magPer(mx)>1?` <small>(each ▮ = ${magPer(mx)})</small>`:""} <button data-rl="${i}"${full||dry?" disabled":""}>${dry?"No spare ammo":"↻ Reload"}</button></span>`:""}</div>`+
+  return `<div class="tank"><div class="tl"><b>${esc(x.name)}</b><span>${w} lb <button data-un="wpn" data-i="${i}" aria-label="Unequip ${esc(x.name)}">×</button></span></div><div class="sub">${esc(sk)} (${CUR.fin[norm(sk)]??`<b class="dn" title="No skill called ${esc(sk)} on this sheet">?</b>`}) · DMG ${esc(it.Damage||"—")}${it.Range?" · RNG "+esc(it.Range):""}</div>${it.Notes?`<div class="sub">${esc(it.Notes)}</div>`:""}${bonTags(it)}${fire?mag(i,x.ammo,mx):""}<div class="tl" style="margin-top:6px;flex-wrap:wrap"><button data-atk="${i}"${empty?" disabled":""} style="white-space:nowrap">${empty?"Empty, reload":fire?"Fire & roll":"Strike & roll"}</button>${fire?`<span class="sub" style="margin:0;white-space:nowrap"><b class="${empty?"dn":""}">${x.ammo}</b> / ${mx}${magPer(mx)>1?` <small>(each ▮ = ${magPer(mx)})</small>`:""} <button data-rl="${i}"${full||dry?" disabled":""}>${dry?"No spare ammo":"↻ Reload"}</button></span>`:""}</div>`+
    (fire?`<div class="tl wammo" style="margin-top:6px"><label class="sub" style="margin:0">Ammo <select data-wtype="${i}" aria-label="${esc(x.name)} ammo type"><option value=""${ty?"":" selected"}>— untracked —</option>${ammoTypes().map(t=>`<option${t===ty?" selected":""}>${esc(t)}</option>`).join("")}</select></label><span class="sub" style="margin:0">${ty?`<b class="${sp?"":"dn"}">${sp}</b> spare`:"free reloads"}</span></div>`:"")+`</div>`}).join("");
  const used={};S.wpn.forEach(x=>{const t=wtype(x);if(t&&num((W(x.name)||{}).MaxAmmo)>0)(used[t]=used[t]||[]).push(x.name)});
  setHTML($("#ammo"),ammoTypes().map(t=>`<div class="tank${used[t]?" on":""}"><div class="tl"><b>${esc(t)}</b><input type="number" min="0" data-ammotype="${esc(t)}" value="${num(S.ammo[t])}" aria-label="${esc(t)} spare rounds"></div><div class="btns">${[-10,-1,1,10].map(v=>`<button data-ad="${v}" data-at="${esc(t)}" aria-label="${v>0?"Add":"Remove"} ${Math.abs(v)} ${esc(t)}">${v>0?"+":""}${v}</button>`).join("")}</div>${used[t]?`<div class="sub">${used[t].map(esc).join(", ")}</div>`:""}</div>`).join(""));
  const gear=S.gear.map((g,i)=>{const it=g.link?W(g.link)||{}:g,uw=g.link?num(it.Weight):num(g.weight),q=num(g.qty,1);wt+=uw*q;
   return `<div class="tank"><div class="tl">${g.link?`<b>${esc(g.link)}</b>`:`<input type="text" data-gi="${i}" data-gf="name" value="${esc(g.name||"Item")}" aria-label="Item name">`}<span>× <input type="number" data-gi="${i}" data-gf="qty" value="${q}" aria-label="Quantity"> ${g.link?uw+" lb":`<input type="number" data-gi="${i}" data-gf="weight" value="${uw}" aria-label="Unit weight"> lb`} <button data-un="gear" data-i="${i}" aria-label="Remove item">×</button></span></div>${it.Notes?`<div class="sub">${esc(it.Notes)}</div>`:""}</div>`}).join("");
  const conds=S.conds.map((n,i)=>{const it=W(n)||{},r=S.cdur[n],dy=norm(n)==="dying";
-  return `<div class="tank${dy?" down":""}"><div class="tl"><b class="dn">${dy?"☠":"⚠"} ${esc(n)}</b><span><label class="sub" style="margin:0" title="Rounds left. Leave blank to last until cleared.">⏱ <input type="number" min="0" data-cdur="${esc(n)}" value="${r||""}" placeholder="∞" aria-label="${esc(n)} rounds left"></label> <button data-un="cond" data-i="${i}" aria-label="Clear ${esc(n)}">×</button></span></div><div class="sub">${esc(it.Effect||it.Description||(dy?"At 0 HP. Healing above 0 clears this.":""))}</div>${bonTags(it)}</div>`}).join("");
+  return `<div class="tank${dy?" down":""}"><div class="tl"><b class="dn">${dy?"**":"!!"} ${esc(n)}</b><span><label class="sub" style="margin:0" title="Rounds left. Leave blank to last until cleared.">RND <input type="number" min="0" data-cdur="${esc(n)}" value="${r||""}" placeholder="∞" aria-label="${esc(n)} rounds left"></label> <button data-un="cond" data-i="${i}" aria-label="Clear ${esc(n)}">×</button></span></div><div class="sub">${esc(it.Effect||it.Description||(dy?"At 0 HP. Healing above 0 clears this.":""))}</div>${bonTags(it)}</div>`}).join("");
  const mx=Math.max(10,num(CUR.attr.body)*10),over=wt>mx,pc=Math.min(100,wt/mx*100);
- $("#load").textContent=`${over?"⚠ Overburdened ":""}${Math.round(wt*10)/10} / ${mx} lb`;$("#load").className=over?"dn":"";
+ $("#load").textContent=`${over?"!! Overburdened ":""}${Math.round(wt*10)/10} / ${mx} lb`;$("#load").className=over?"dn":"";
  $("#loadbar").style.width=pc+"%";$("#loadbar").style.background=over?"var(--bad)":pc>80?"#d9822b":"var(--ok)";
  setHTML($("#conds"),conds||`<div class="sub">No active conditions.</div>`);
  setHTML($("#wpns"),wpns||`<div class="sub">No weapons equipped.</div>`);
@@ -649,17 +894,17 @@ document.addEventListener("click",e=>{
  else if(d.shot){const[wi,k]=d.shot.split("|").map(Number),x=S.wpn[wi],mx=num((W(x.name)||{}).MaxAmmo),per=magPer(mx),top=Math.min(mx,k*per);x.ammo=x.ammo===top?(k-1)*per:top;update()}
  else if(d.rl){const x=S.wpn[+d.rl],mx=num((W(x.name)||{}).MaxAmmo),ty=wtype(x),need=Math.max(0,mx-x.ammo);
   if(!ty){x.ammo=mx;$("#atk").textContent=`↻ ${x.name} reloaded.`}
-  else{const take=Math.min(need,num(S.ammo[ty]));if(!take){$("#atk").textContent=`⚠ No spare ${ty} for ${x.name}.`;return}
+  else{const take=Math.min(need,num(S.ammo[ty]));if(!take){$("#atk").textContent=`!! No spare ${ty} for ${x.name}.`;return}
    x.ammo+=take;S.ammo[ty]=num(S.ammo[ty])-take;
    $("#atk").textContent=`↻ ${x.name} loaded ${take} ${ty}${take<need?`, ${need-take} short`:""}. ${S.ammo[ty]} left.`}
   update()}
  else if(d.atk!==undefined){const x=S.wpn[+d.atk],it=W(x.name)||{},sk=it.Skill||"One-Handed",t=CUR.fin[norm(sk)];
-  if(t==null){$("#atk").innerHTML=`⚠ <b>${esc(x.name)}</b>: no skill called “${esc(sk)}”. Check the weapon’s Skill field.`;return}
+  if(t==null){$("#atk").innerHTML=`!! <b>${esc(x.name)}</b>: no skill called “${esc(sk)}”. Check the weapon’s Skill field.`;return}
   if(num(it.MaxAmmo)>0){if(x.ammo<=0)return;x.ammo--}
   const r=Math.floor(Math.random()*100)+1,ok=r<=t;
   const dm=ok&&it.Damage?rollDice(it.Damage):null;
   addRoll({n:x.name+" ["+sk+"]",d:r,v:t,ok,df:S.diff,k:"atk",dmg:dm?dm.total:null,x:ok&&it.Damage?(dm?dmgText(it.Damage,dm):"DMG "+it.Damage):""});
-  $("#atk").innerHTML=`🎯 <b>${esc(x.name)}</b> [${esc(sk)}] ${r} ${ok?"≤":">"} ${t} · <b class="${ok?"up":"dn"}">${ok?"HIT":"MISS"}</b>`+
+  $("#atk").innerHTML=`&gt;&gt; <b>${esc(x.name)}</b> [${esc(sk)}] ${r} ${ok?"≤":">"} ${t} · <b class="${ok?"up":"dn"}">${ok?"HIT":"MISS"}</b>`+
    (ok?(dm?` · <b>${dm.total} dmg</b>${dm.rest?" "+esc(dm.rest):""} <small>${esc(it.Damage)}: ${esc(dm.detail)}</small>`:` (${esc(it.Damage||"—")})`):"");
   update()}
  else if(g.id==="addcustom"){S.gear.push({name:"Field ration / salvage",qty:1,weight:1});update()}});
@@ -692,6 +937,168 @@ $("#pfile").addEventListener("change",e=>{const f=e.target.files[0];if(!f)return
 try{setLib(JSON.parse(localStorage.getItem("lib-v1")||"{}"))}catch(e){}
 showTab();
 fill();update();
+</script>
+<script>
+/* =====================================================================
+   CRT LAYER: display settings, boot screen, power switch, teletype text,
+   afterglow, signal glitches, monitor bezel and sound. Only changes how
+   the sheet looks and sounds; it reads S (character) and L (library).
+   ===================================================================== */
+(function(){
+const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s),root=document.documentElement;
+const RM=matchMedia("(prefers-reduced-motion: reduce)");
+const sleepFor=ms=>new Promise(r=>setTimeout(r,ms));
+
+/* ---------- settings (per browser) ---------- */
+const DEF={skin:"crt",theme:"auto",ph:"green",scan:true,glass:true,glow:true,tty:true,boot:true,glitch:false,bezel:false,sound:false,vol:40,kb:1,kc:1};
+// Every effect below only runs in the Terminal look
+const crt=()=>O.skin==="crt";
+let O;try{O={...DEF,...JSON.parse(localStorage.getItem("crt-v1")||"{}")}}catch(e){O={...DEF}}
+const saveO=()=>{try{localStorage.setItem("crt-v1",JSON.stringify(O))}catch(e){}};
+const PH={green:"GREEN PHOSPHOR (P1)",amber:"AMBER PHOSPHOR (P3)",white:"WHITE PHOSPHOR (P4)"};
+
+/* ---------- sound: everything is synthesised, nothing is downloaded ---------- */
+const sound=(()=>{let ctx=null,master=null,hum=null;
+ function ensure(){if(!O.sound||!crt())return null;
+  if(!ctx){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;ctx=new AC();master=ctx.createGain();master.connect(ctx.destination)}
+  if(ctx.state==="suspended")ctx.resume();master.gain.value=O.vol/100*.6;return ctx}
+ function startHum(){if(hum||root.classList.contains("off")||!ensure())return;
+  const mk=(f,v)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(master);o.start();return{o,g}};
+  const a=mk(60,.02),b=mk(120,.008),c=mk(15734,.003);   // mains hum, its harmonic, and the flyback whine
+  hum={stop(){[a,b,c].forEach(x=>{try{x.o.stop()}catch(e){}x.g.disconnect()})}}}
+ function stopHum(){if(hum){hum.stop();hum=null}}
+ function click(){if(!ensure())return;const n=Math.floor(ctx.sampleRate*.018),buf=ctx.createBuffer(1,n,ctx.sampleRate),d=buf.getChannelData(0);
+  for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,5);
+  const s=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=ctx.createGain();s.buffer=buf;f.type="bandpass";f.frequency.value=1800+Math.random()*1400;f.Q.value=1.4;g.gain.value=.55;
+  s.connect(f);f.connect(g);g.connect(master);s.start()}
+ function degauss(){if(!ensure())return;const t=ctx.currentTime,o=ctx.createOscillator(),g=ctx.createGain(),z=ctx.createOscillator(),zg=ctx.createGain();
+  o.frequency.setValueAtTime(95,t);o.frequency.exponentialRampToValueAtTime(36,t+.9);
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.9,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+1.1);
+  z.type="sawtooth";z.frequency.value=120;zg.gain.setValueAtTime(.1,t);zg.gain.exponentialRampToValueAtTime(.0001,t+.8);
+  o.connect(g);g.connect(master);z.connect(zg);zg.connect(master);o.start(t);z.start(t);o.stop(t+1.2);z.stop(t+.9)}
+ function sync(){if(!O.sound||!crt()){stopHum();return}if(ctx){master.gain.value=O.vol/100*.6;startHum()}}
+ return{ensure,startHum,stopHum,click,degauss,sync,ready:()=>!!ctx}})();
+// Browsers only allow audio after a click or key press, so sound starts on the first one
+const unlock=()=>{if(O.sound&&crt()&&!sound.ready()){sound.ensure();sound.startHum()}};
+document.addEventListener("pointerdown",unlock,true);document.addEventListener("keydown",unlock,true);
+document.addEventListener("pointerdown",e=>{if(O.sound&&e.target.closest("button,.btn,.nm,[role=button],select,input[type=checkbox]"))sound.click()});
+document.addEventListener("keydown",e=>{if(O.sound&&e.key.length===1&&e.target.matches&&e.target.matches("input,textarea"))sound.click()});
+
+/* ---------- monitor bezel: wraps the screen, holds the power light and knobs ---------- */
+const wrap=$(".wrap"),bez=document.createElement("div");bez.className="bezel";wrap.before(bez);bez.append(wrap);
+bez.insertAdjacentHTML("beforeend",`<div class="bezel-bar"><span class="badge">Traveller-80 · Monochrome</span>
+ <span class="knobs"><label class="knob">Brightness<input type="range" min="0.6" max="1.4" step="0.02" data-opt="kb" aria-label="Screen brightness"></label>
+ <label class="knob">Contrast<input type="range" min="0.6" max="1.6" step="0.02" data-opt="kc" aria-label="Screen contrast"></label></span>
+ <span><span class="pwrled" aria-hidden="true"></span><button id="pwr3">Power</button></span></div>`);
+
+function apply(){
+ if(crt())root.dataset.skin="crt";else delete root.dataset.skin;
+ if(O.theme==="light"||O.theme==="dark")root.dataset.theme=O.theme;else delete root.dataset.theme;
+ root.dataset.phosphor=O.ph;root.classList.toggle("no-scan",!O.scan);root.classList.toggle("fx-glass",!!O.glass);root.classList.toggle("fx-bezel",!!O.bezel);
+ root.style.setProperty("--knob-b",O.kb);root.style.setProperty("--knob-c",O.kc);
+ $$("[data-opt]").forEach(i=>{const v=O[i.dataset.opt];if(i.type==="checkbox")i.checked=!!v;else if(String(i.value)!==String(v))i.value=v});
+ sound.sync()}
+function onOpt(e){const t=e.target,k=t.dataset&&t.dataset.opt;if(!k)return;
+ O[k]=t.type==="checkbox"?t.checked:t.tagName==="SELECT"?t.value:+t.value;apply();saveO();
+ if(k==="skin"){
+  // Leaving the terminal: stop anything mid-flight. Entering it: switch the screen on
+  if(!crt()){root.classList.remove("off","powering");wrap.inert=false;$$(".tty-on").forEach(stopTyping);$$(".flash").forEach(x=>x.classList.remove("flash"))}
+  else if(O.boot&&!RM.matches)boot();else replayWrap()}
+ if(k==="sound"&&O.sound){sound.ensure();sound.degauss();sound.startHum()}
+ if(k==="glitch"&&O.glitch)glitch();
+ if(k==="tty"&&!O.tty)$$(".tty-on").forEach(stopTyping)}
+document.addEventListener("change",onOpt);
+document.addEventListener("input",e=>{if(e.target.type==="range")onOpt(e)});
+
+/* ---------- boot screen ---------- */
+let booting=null;
+function boot(){if(booting)return booting;
+ const el=$("#boot"),pre=el.querySelector("pre");let stop=false;
+ booting=new Promise(done=>{
+  const finish=()=>{if(stop)return;stop=true;el.classList.remove("on");document.removeEventListener("keydown",skip,true);el.removeEventListener("click",skip);booting=null;replayWrap();done()};
+  const skip=e=>{e.preventDefault();e.stopPropagation();finish()};
+  document.addEventListener("keydown",skip,true);el.addEventListener("click",skip);
+  el.classList.add("on");pre.textContent="";sound.degauss();
+  const lib=typeof L!=="undefined"&&L.all?Object.keys(L.all).length:0,who=(typeof S!=="undefined"&&S.name||"UNNAMED").toUpperCase();
+  const fast=RM.matches,wait=ms=>fast?Promise.resolve():sleepFor(ms);
+  (async()=>{const put=s=>{pre.textContent+=s},base=()=>pre.textContent;
+   put("TRAVELLER SYSTEMS   BIOS v2.04   (C) 1983\n\n");await wait(220);if(stop)return;
+   put("CPU    8088-2 @ 4.77 MHz ............ OK\n");await wait(160);if(stop)return;
+   const b0=base();for(let k=0;k<=640;k+=32){pre.textContent=b0+`MEMORY ${String(k).padStart(3," ")}K `+(k===640?"OK\n":"");await wait(18);if(stop)return}
+   put(`VIDEO  MONOCHROME / ${PH[O.ph]}\n`);await wait(160);if(stop)return;
+   put(`LIB    ${lib} ${lib===1?"ENTRY":"ENTRIES"} IN STORE\n\n`);await wait(160);if(stop)return;
+   const b1=base();for(let k=0;k<=20;k++){pre.textContent=b1+"LOADING CHARSHEET.EXE  ["+"#".repeat(k)+".".repeat(20-k)+"]\n";await wait(22);if(stop)return}
+   put(`\nOPERATIVE  ${who}\nREADY.\n> `);await wait(fast?0:520);finish()})()});
+ return booting}
+function replayWrap(){wrap.style.animation="none";void wrap.offsetWidth;wrap.style.animation=""}
+
+/* ---------- power switch ---------- */
+function powerOff(){if(root.classList.contains("off")||root.classList.contains("powering"))return;
+ root.classList.add("powering");sound.stopHum();
+ setTimeout(()=>{root.classList.remove("powering");root.classList.add("off");wrap.inert=true;$("#pwron").focus()},RM.matches?0:560)}
+function powerOn(){if(!root.classList.contains("off"))return;root.classList.remove("off");wrap.inert=false;
+ if(O.sound)sound.startHum();
+ if(O.boot)boot();else{sound.degauss();replayWrap()}}
+document.addEventListener("click",e=>{const id=e.target.closest("button")&&e.target.closest("button").id;
+ if(id==="pwr"||id==="pwr2"||id==="pwr3")powerOff();
+ else if(id==="pwron")powerOn();
+ else if(id==="reboot")boot();
+ else if(id==="optreset"){O={...DEF,skin:O.skin,theme:O.theme,sound:O.sound,vol:O.vol};apply();saveO()}});
+
+/* ---------- teletype: roll results print out a character at a time ---------- */
+// Timers rather than animation frames, so text still finishes printing in a background tab
+function stopTyping(el){const j=el._tty;if(!j)return;clearTimeout(j.id);j.restore();el._tty=null;el.classList.remove("tty-on")}
+function typeOut(el){if(!crt()||!O.tty||RM.matches)return;stopTyping(el);
+ const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT),nodes=[];while(w.nextNode())nodes.push(w.currentNode);
+ const full=nodes.map(n=>n.nodeValue),total=full.reduce((a,s)=>a+s.length,0);if(!total)return;
+ nodes.forEach(n=>n.nodeValue="");el.classList.add("tty-on");
+ const dur=Math.min(650,total*16),t0=performance.now(),job={id:0,last:0,restore:()=>nodes.forEach((n,i)=>n.nodeValue=full[i])};el._tty=job;
+ const frame=()=>{if(el._tty!==job)return;const shown=Math.min(total,Math.ceil((performance.now()-t0)/dur*total));let left=shown;
+  nodes.forEach((n,i)=>{const take=Math.max(0,Math.min(full[i].length,left));n.nodeValue=full[i].slice(0,take);left-=take});
+  if(O.sound&&Math.floor(shown/4)>Math.floor(job.last/4))sound.click();job.last=shown;
+  if(shown<total)job.id=setTimeout(frame,16);else{el._tty=null;el.classList.remove("tty-on")}};
+ job.id=setTimeout(frame,16)}
+const ttyMo=new MutationObserver(recs=>new Set(recs.map(r=>r.target)).forEach(typeOut));
+["#roll","#atk","#dicer","#rmsg","#msg","#lmsg"].forEach(s=>{const el=$(s);if(el)ttyMo.observe(el,{childList:true})});
+// The roll log re-renders often; only a new top entry prints out
+const logMo=new MutationObserver(recs=>new Set(recs.map(r=>r.target)).forEach(el=>{const row=el.querySelector(".rl"),t=row?row.textContent:"";
+ if(t!==el._first){el._first=t;if(row)typeOut(row)}}));
+$$("[data-rlog]").forEach(el=>{const r=el.querySelector(".rl");el._first=r?r.textContent:"";logMo.observe(el,{childList:true})});
+// Switching tabs draws the new section in from the top, like a slow refresh
+document.addEventListener("click",e=>{if(!e.target.closest("[data-go],[data-open]")||!crt()||!O.tty||RM.matches)return;
+ $$("[data-tab]").forEach(el=>{if(el.hidden)return;el.classList.remove("drawin");void el.offsetWidth;el.classList.add("drawin")})});
+
+/* ---------- afterglow: a changed number flashes bright, then fades ---------- */
+const GLOW=".eff,.pill b,.pts b,#pool,#fpts,#cap,#load,#armtot,.tl b,[data-pct],#m-name,#m-lvl,#m-oc,#m-hp";
+const lastText=new WeakMap(),pend=new Set();let raf=0;
+const glowMo=new MutationObserver(recs=>{
+ for(const r of recs){let el=r.target.nodeType===3?r.target.parentElement:r.target;el=el&&el.closest&&el.closest(GLOW);if(el)pend.add(el)}
+ if(!raf)raf=setTimeout(()=>{raf=0;pend.forEach(el=>{const t=el.textContent;
+  if(crt()&&O.glow&&!RM.matches&&lastText.has(el)&&lastText.get(el)!==t){el.classList.remove("flash");void el.offsetWidth;el.classList.add("flash")}
+  lastText.set(el,t)});pend.clear()})});
+$$(GLOW).forEach(el=>lastText.set(el,el.textContent));
+glowMo.observe(wrap,{childList:true,characterData:true,subtree:true});
+
+/* ---------- signal glitches, every 20 to 40 seconds ---------- */
+function glitch(){if(RM.matches||root.classList.contains("off"))return;const band=$(".crt-band");
+ band.style.top=(8+Math.random()*80)+"vh";band.classList.add("on");wrap.classList.remove("glitch");void wrap.offsetWidth;wrap.classList.add("glitch");
+ if(O.sound)sound.click();setTimeout(()=>{band.classList.remove("on");wrap.classList.remove("glitch")},300)}
+(function schedule(){setTimeout(()=>{if(crt()&&O.glitch&&!document.hidden)glitch();schedule()},20000+Math.random()*20000)})();
+
+/* ---------- MOTD banner, kept in step with the open character ---------- */
+const el=id=>document.getElementById(id),pad=n=>String(n).padStart(2,"0");
+function tick(){const d=new Date(),c=typeof S!=="undefined"?S:null;
+ el("m-date").textContent=`${d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${d.getFullYear()}`;
+ if(!c)return;
+ const set=(id,v)=>{v=String(v);if(el(id).textContent!==v)el(id).textContent=v};
+ set("m-name",(c.name||"UNNAMED").toUpperCase());set("m-lvl",c.level);
+ set("m-oc",`${c.origin||"—"} / ${c.career||"—"}`);set("m-hp",`${c.hp} / ${c.maxHp}${c.hp<=0?"  ** DYING **":""}`)}
+
+/* ---------- start ---------- */
+apply();tick();setInterval(tick,1000);
+let seen=false;try{seen=!!sessionStorage.getItem("crt-booted");sessionStorage.setItem("crt-booted","1")}catch(e){}
+if(crt()&&O.boot&&!seen&&!RM.matches)boot();
+})();
 </script>
 </body>
 </html>
