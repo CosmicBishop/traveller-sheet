@@ -1,0 +1,6 @@
+# Never publish the Obsidian vault or editor clutter
+.obsidian/
+*.canvas
+.DS_Store
+Thumbs.db
+desktop.ini
