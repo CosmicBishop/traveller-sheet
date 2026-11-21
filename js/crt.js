@@ -112,6 +112,8 @@ function typeOut(el){if(!crt()||!O.tty||RM.matches)return;stopTyping(el);
  const full=nodes.map(n=>n.nodeValue),total=full.reduce((a,s)=>a+s.length,0);if(!total)return;
  nodes.forEach(n=>n.nodeValue="");el.classList.add("tty-on");
  const dur=Math.min(650,total*16),t0=performance.now(),job={id:0,last:0,restore:()=>nodes.forEach((n,i)=>n.nodeValue=full[i])};el._tty=job;
+ // A roll's result still printing blocks the next roll until it's finished
+ if(el.matches(ROLL_OUT))holdRolls(Math.max(t0,tumbleUntil)+dur+80);
  // While the dice are still tumbling, the result waits for them to land
  const frame=()=>{if(el._tty!==job)return;const start=Math.max(t0,tumbleUntil),shown=Math.min(total,Math.max(0,Math.ceil((performance.now()-start)/dur*total)));let left=shown;
   nodes.forEach((n,i)=>{const take=Math.max(0,Math.min(full[i].length,left));n.nodeValue=full[i].slice(0,take);left-=take});
@@ -123,13 +125,28 @@ const ttyMo=new MutationObserver(recs=>new Set(recs.map(r=>r.target)).forEach(ty
 // The roll log re-renders often; only a new top entry prints out
 // A new top entry is also a new roll, so the dice tumble for it
 let lastRoll=null;
-const logMo=new MutationObserver(recs=>{let fresh=false;new Set(recs.map(r=>r.target)).forEach(el=>{const row=el.querySelector(".rl"),t=row?row.textContent:"";
- if(t!==el._first){el._first=t;if(row){fresh=true;typeOut(row)}}});
- const top=typeof S!=="undefined"&&S.rolls[0];if(fresh&&top&&top!==lastRoll){lastRoll=top;tumble(top)}});
+// Only a roll made just now counts: switching to another character changes the top row too,
+// but that character's last roll is old news and shouldn't tumble or block rolling.
+const logMo=new MutationObserver(recs=>{
+ const top=typeof S!=="undefined"&&S.rolls[0],fresh=!!(top&&top.at&&Date.now()-top.at<2000&&top!==lastRoll);
+ new Set(recs.map(r=>r.target)).forEach(el=>{const row=el.querySelector(".rl"),t=row?row.textContent:"";
+  if(t!==el._first){el._first=t;if(row&&fresh)typeOut(row)}});
+ if(fresh){lastRoll=top;tumble(top)}});
 $$("[data-rlog]").forEach(el=>{const r=el.querySelector(".rl");el._first=r?r.textContent:"";logMo.observe(el,{childList:true})});
 // Switching tabs draws the new section in from the top, like a slow refresh
 document.addEventListener("click",e=>{if(!e.target.closest("[data-go],[data-open]")||!crt()||!O.tty||RM.matches)return;
  $$("[data-tab]").forEach(el=>{if(el.hidden)return;el.classList.remove("drawin");void el.offsetWidth;el.classList.add("drawin")})});
+
+/* ---------- one roll at a time: no new roll until the dice have landed and the result has printed ---------- */
+const ROLLERS=".nm,[data-atk],[data-cast]",ROLL_OUT="#roll,#atk,#dicer,.rl";
+let busyUntil=0,busyT=0;
+const rollBusy=()=>crt()&&performance.now()<busyUntil;
+function holdRolls(until){if(until<=busyUntil)return;busyUntil=until;root.classList.add("roll-busy");
+ clearTimeout(busyT);busyT=setTimeout(()=>{if(performance.now()>=busyUntil-5)root.classList.remove("roll-busy")},until-performance.now()+10)}
+// Capture phase, so the sheet's own roll handlers never see a click made while a roll is still running
+document.addEventListener("click",e=>{if(rollBusy()&&e.target.closest&&e.target.closest(ROLLERS)){e.preventDefault();e.stopImmediatePropagation()}},true);
+document.addEventListener("keydown",e=>{if(rollBusy()&&(e.key==="Enter"||e.key===" ")&&e.target.closest&&e.target.closest(".nm")){e.preventDefault();e.stopImmediatePropagation()}},true);
+document.addEventListener("submit",e=>{if(rollBusy()&&e.target.id==="dicef"){e.preventDefault();e.stopImmediatePropagation()}},true);
 
 /* ---------- rolling dice: an ASCII die tumbles in a tray, then lands on the result ---------- */
 let tumbleUntil=0;
@@ -151,7 +168,7 @@ function landing(e){
 function tumble(e){if(!crt()||!O.dice||RM.matches)return;const L=landing(e);if(!L)return;
  const pre=tray.firstChild,big=e.k==="dice"||e.k==="cast"?99:100,frames=[];
  for(let i=0;i<9;i++){const k=i%4;frames.push(k===0?DIE.box(...PIPS[rnd(6)-1]):k===1?DIE.tilt():k===2?DIE.diamond(rnd(big)):DIE.side())}
- const step=70,dur=frames.length*step;tumbleUntil=performance.now()+dur;
+ const step=70,dur=frames.length*step;tumbleUntil=performance.now()+dur;holdRolls(tumbleUntil+700);
  clearTimeout(tray._t);tray.className="on rolling";let i=0;
  const next=()=>{if(i<frames.length){pre.textContent=frames[i++].join("\n");tray.style.setProperty("--jx",(Math.random()*10-5)+"px");tray.style.setProperty("--jr",(Math.random()*16-8)+"deg");
    if(O.sound)sound.click();tray._t=setTimeout(next,step);return}

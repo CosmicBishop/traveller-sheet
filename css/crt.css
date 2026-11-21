@@ -151,6 +151,10 @@ button:hover:not(:disabled)::before,button:hover:not(:disabled)::after,.cur::bef
  .motd .art{display:none}
  .panel{padding:12px 10px 10px}}
 
+/* While a roll is running, every roll control dims and ignores clicks until the result has printed */
+&.roll-busy .nm,&.roll-busy [data-atk],&.roll-busy [data-cast],&.roll-busy #dicef button{opacity:.4;cursor:wait}
+&.roll-busy .nm:hover{background:none}
+
 /* Rolling dice tray (Settings: Rolling dice animation) */
 #dicetray{position:fixed;right:max(18px,3vw);bottom:max(18px,4vh);z-index:9994;pointer-events:none;padding:10px 14px 8px;
  background:var(--field);border:3px double var(--line);box-shadow:0 0 0 6px rgba(0,0,0,.6),0 0 26px rgba(var(--g),.25);

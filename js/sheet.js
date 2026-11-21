@@ -8,7 +8,8 @@ const G=[
 ["Willpower","WILL","Җ",["Interrogation","Intimidate","Perform","Persuasion/Fast Talk","Seduction"]]];
 const DEF={name:"New character",level:1,attr:{Body:5,Dexterity:5,Agility:5,Intelligence:5,Perception:5,Willpower:5},pts:{},temp:{},feats:""};
 const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
-const norm=s=>s.toLowerCase().replace(/[^a-z0-9]/g,"");
+// String() first: a number or list in imported data must never crash the sheet
+const norm=s=>String(s??"").toLowerCase().replace(/[^a-z0-9]/g,"");
 const esc=s=>String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
 // Update a container to new HTML in place, keeping existing elements (and focus) where the structure matches
 function morphKids(a,b){const ac=[...a.childNodes],bc=[...b.childNodes];
@@ -18,19 +19,35 @@ function morph(a,b){
  if(a.nodeType!==1){if(a.nodeValue!==b.nodeValue)a.nodeValue=b.nodeValue;return}
  for(const{name}of[...a.attributes])if(!b.hasAttribute(name))a.removeAttribute(name);
  for(const{name,value}of[...b.attributes])if(a.getAttribute(name)!==value)a.setAttribute(name,value);
+ const tv=a.tagName==="TEXTAREA"?b.textContent:null;// read before morphKids moves b's text node into a
  morphKids(a,b);
  if(a.tagName==="INPUT"){const v=b.getAttribute("value")??"";if(a.type==="checkbox")a.checked=b.hasAttribute("checked");else if(a.type!=="file"&&a.value!==v)a.value=v}
+ // Once typed in, a textarea ignores its text content, so set what it shows directly
+ else if(tv!==null){if(a.value!==tv)a.value=tv}
  else if(a.tagName==="SELECT")a.selectedIndex=Math.max(0,[...a.options].findIndex(o=>o.hasAttribute("selected")))}
 function setHTML(el,html){const t=document.createElement("template");t.innerHTML=html;morphKids(el,t.content)}
 const mult=n=>n>4?1+(n-4)*.085:n<4?Math.max(.1,1-(4-n)*.1):1;
 const clamp=v=>Math.max(5,Math.min(90,v));
 const n0=(x,d)=>x==null||isNaN(+x)?d:+x;
-const fix=o=>({name:String(o.name||"Unnamed"),level:Math.max(1,+o.level||1),
- attr:{...Object.fromEntries(G.map(g=>[g[0],5])),...o.attr},pts:{...o.pts},temp:{...o.temp},feats:String(o.feats??""),career:String(o.career||""),origin:String(o.origin||""),
- got:{feat:[],"origin-feature":[],"career-feature":[],...o.got},vis:o.vis||{},crucible:String(o.crucible||""),spells:Array.isArray(o.spells)?o.spells:[],
+// Every character that comes in (storage, a file, pasted text, a share link) passes through fix(),
+// which keeps only the expected types: numbers stay numbers and lists hold plain strings or clean objects.
+// That stops a hand-edited or malicious file from breaking the sheet or slipping HTML into it.
+const fin=(x,d=0)=>{const v=+x;return Number.isFinite(v)?v:d};
+const strs=a=>Array.isArray(a)?a.filter(x=>x!=null&&typeof x!=="object").map(String):[];
+const obj=o=>o&&typeof o==="object"&&!Array.isArray(o)?o:{};
+const numMap=(o,f)=>Object.fromEntries(Object.entries(obj(o)).map(([k,v])=>[k,f(v)]).filter(([,v])=>v!==null));
+const fix=o=>(o=obj(o),{name:String(o.name||"Unnamed"),level:Math.max(1,Math.floor(fin(o.level,1))||1),
+ attr:{...Object.fromEntries(G.map(g=>[g[0],5])),...numMap(o.attr,v=>fin(v,5))},
+ pts:numMap(o.pts,v=>{const n=Math.floor(fin(v));return n>0?n:null}),temp:numMap(o.temp,v=>fin(v)||null),
+ feats:String(o.feats??""),career:String(o.career||""),origin:String(o.origin||""),
+ got:{feat:strs(obj(o.got).feat),"origin-feature":strs(obj(o.got)["origin-feature"]),"career-feature":strs(obj(o.got)["career-feature"])},
+ vis:Object.fromEntries(Object.entries(obj(o.vis)).filter(([,v])=>v&&typeof v==="object").map(([k,v])=>[k,{cur:Math.max(0,fin(v.cur)),max:Math.max(0,fin(v.max,25))}])),
+ crucible:String(o.crucible||""),spells:strs(o.spells),
  diff:[-30,-20,-10,0,10,20,30].includes(+o.diff)?+o.diff:0,rolls:Array.isArray(o.rolls)?o.rolls.filter(x=>x&&typeof x==="object").slice(0,10):[],vf:Array.isArray(o.vf)?o.vf.filter(x=>["Aer","Aqua","Ignis","Ordo","Perditio","Terra"].includes(x)):[],hp:n0(o.hp,20),maxHp:Math.max(1,n0(o.maxHp,20)),armorBase:n0(o.armorBase,0),move:n0(o.move,0),init:n0(o.init,0),
  age:String(o.age||""),bg:String(o.bg||""),faction:String(o.faction||""),motive:String(o.motive||""),bio:String(o.bio||""),log:String(o.log||""),portrait:String(o.portrait||""),showAll:!!o.showAll,
- wpn:Array.isArray(o.wpn)?o.wpn:[],arm:Array.isArray(o.arm)?o.arm:[],gear:Array.isArray(o.gear)?o.gear.filter(Boolean):[],conds:Array.isArray(o.conds)?o.conds:[],
+ wpn:(Array.isArray(o.wpn)?o.wpn:[]).filter(x=>x&&typeof x==="object"&&x.name!=null).map(x=>{const w={name:String(x.name),ammo:Math.max(0,Math.floor(fin(x.ammo)))};if(typeof x.type==="string")w.type=x.type;return w}),
+ arm:strs(o.arm),conds:strs(o.conds),
+ gear:(Array.isArray(o.gear)?o.gear:[]).filter(x=>x&&typeof x==="object").map(g=>g.link!=null?{link:String(g.link),qty:Math.max(0,fin(g.qty,1))}:{name:String(g.name||"Item"),qty:Math.max(0,fin(g.qty,1)),weight:Math.max(0,fin(g.weight))}),
  ammo:Object.fromEntries(Object.entries(o.ammo&&typeof o.ammo==="object"?o.ammo:{}).map(([k,v])=>[k,Math.max(0,Math.floor(+v)||0)])),
  cdur:Object.fromEntries(Object.entries(o.cdur&&typeof o.cdur==="object"?o.cdur:{}).map(([k,v])=>[k,Math.floor(+v)||0]).filter(([,v])=>v>0)),
  journal:Array.isArray(o.journal)?o.journal.filter(x=>x&&typeof x==="object").map(x=>({id:String(x.id||Date.now().toString(36)+Math.random().toString(36).slice(2,6)),
@@ -47,8 +64,13 @@ if(!IDX.list.some(c=>c.id===IDX.cur))IDX.cur=IDX.list[0].id;
 const MEM={};// characters loaded this session, so switching still works if storage is blocked
 let S;try{S=fix(LS.get("char-"+IDX.cur)||DEF)}catch(e){S=fix(DEF)}
 MEM[IDX.cur]=S;
-const save=()=>{const c=IDX.list.find(c=>c.id===IDX.cur);if(c)c.name=S.name;MEM[IDX.cur]=S;
+// The sheet may be open twice (say the installed app and a browser tab). Before writing the list of
+// characters, pick up any another copy added, so neither copy drops the other's new characters.
+function mergeIndex(){const st=LS.get("chars-v1");if(!st||!Array.isArray(st.list))return false;let added=false;
+ st.list.forEach(c=>{if(c&&c.id&&!IDX.list.some(x=>x.id===c.id)&&LS.get("char-"+c.id)){IDX.list.push({id:c.id,name:String(c.name||"")});added=true}});return added}
+const save=()=>{const c=IDX.list.find(c=>c.id===IDX.cur);if(c)c.name=S.name;MEM[IDX.cur]=S;mergeIndex();
  const ok=LS.set("char-"+IDX.cur,S)&&LS.set("chars-v1",IDX);$("#savewarn").hidden=ok};
+window.addEventListener("storage",e=>{if(e.key==="chars-v1"&&mergeIndex())renderChars()});
 
 function bonuses(){const b={};
  S.feats.split("\n").forEach(l=>{const i=l.indexOf(":");if(i<0)return;
@@ -143,7 +165,7 @@ $("#dicef").addEventListener("submit",e=>{e.preventDefault();const v=$("#dice").
  out.className="";out.innerHTML=`<b class="up">${r.total}</b> <small>${esc(r.detail)}</small>`;
  addRoll({n:v,k:"dice",t:r.total,x:r.detail})});
 const DIFFN={30:"Trivial",20:"Effortless",10:"Simple","-10":"Difficult","-20":"Challenging","-30":"Complicated"};
-function addRoll(e){S.rolls.unshift(e);S.rolls.length=Math.min(S.rolls.length,10);renderLog();save()}
+function addRoll(e){e.at=Date.now();S.rolls.unshift(e);S.rolls.length=Math.min(S.rolls.length,10);renderLog();save()}
 function renderLog(){
  const dmg=e=>e.dmg!=null&&!isNaN(+e.dmg)?` · <b>${+e.dmg} dmg</b>`:"";
  const rows=S.rolls.map(e=>{
@@ -175,7 +197,7 @@ document.addEventListener("click",e=>{
   msg.textContent=importData(o,"the pasted text")}
  else if(id==="dl")msg.textContent="Downloaded "+download((S.name.replace(/[\\/:*?"<>|]+/g,"").trim()||"character")+".json",S)+"."
  else if(id==="bkall"){const list=allChars();
-  msg.textContent="Downloaded "+download(`traveller-characters-${localDate()}.json`,{type:"traveller-backup",v:1,saved:new Date().toISOString(),characters:list})+` (${list.length} character${list.length===1?"":"s"}).`}
+  msg.textContent="Downloaded "+download(`traveller-characters-${localDate()}.json`,{type:"traveller-backup",v:1,saved:new Date().toISOString(),characters:list},true)+` (${list.length} character${list.length===1?"":"s"}).`}
  else if(id==="share")shareLink().then(m=>msg.textContent=m)
  else if(id==="newc"){addChar(fix(DEF));msg.textContent="New character created."}
  else if(id==="dupc"){const o=fix(JSON.parse(JSON.stringify(S)));o.name=(S.name+" copy").slice(0,24);addChar(o);msg.textContent="Duplicated."}
@@ -192,9 +214,11 @@ function renderChars(){const o=IDX.list.map(c=>`<option value="${c.id}"${c.id===
  $("#ccount").textContent=IDX.list.length+(IDX.list.length===1?" character":" characters");renderBackup()}
 
 /* ---------- backups, restores and share links ---------- */
-function download(name,obj){const a=document.createElement("a");
- a.href=URL.createObjectURL(new Blob([JSON.stringify(obj,null,1)],{type:"application/json"}));a.download=name;
- document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);LS.set("bk-v1",Date.now());renderBackup();return name}
+// Only Back up all counts towards the backup reminder; downloading one character doesn't save the others
+function download(name,data,isBackup){const a=document.createElement("a");
+ a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,1)],{type:"application/json"}));a.download=name;
+ document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+ if(isBackup){LS.set("bk-v1",Date.now());renderBackup()}return name}
 function allChars(){save();return IDX.list.map(c=>MEM[c.id]||fix(LS.get("char-"+c.id)||DEF))}
 // Characters only live in this browser, so nudge towards a backup when there isn't a recent one
 function renderBackup(){const el=$("#bkinfo");if(!el)return;const t=LS.get("bk-v1"),days=t?Math.floor((Date.now()-t)/864e5):null;
@@ -455,7 +479,9 @@ function mag(i,ammo,mx){const per=magPer(mx),n=Math.ceil(mx/per);let h="";
  return `<div class="mag" role="group" aria-label="Magazine: ${ammo} of ${mx} rounds">${h}</div>`}
 function renderArmory(){
  let wt=0;
- const bySlot={};S.arm=S.arm.filter(n=>{const sl=slotOf(n);if(bySlot[sl])return false;bySlot[sl]=n;return true});
+ // One piece per slot. Only drop a second piece when both are known library items: without the library
+ // (opened offline as a file, or before it has loaded) every unknown name guesses "Torso", and must not be deleted.
+ const bySlot={};S.arm=S.arm.filter(n=>{const sl=slotOf(n);if(bySlot[sl])return !(W(n)&&W(bySlot[sl]));bySlot[sl]=n;return true});
  let armSum=0;
  setHTML($("#aslots"),SLOTS.map(sl=>{const n=bySlot[sl],it=n?W(n)||{}:{},w=num(it.Weight),av=num(it.Armor);if(n){wt+=w;armSum+=av}
   const list=(L.by.armor||[]).filter(a=>slotOf(a.name)===sl);
