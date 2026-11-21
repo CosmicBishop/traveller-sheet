@@ -43,7 +43,11 @@ const fix=o=>(o=obj(o),{name:String(o.name||"Unnamed"),level:Math.max(1,Math.flo
  got:{feat:strs(obj(o.got).feat),"origin-feature":strs(obj(o.got)["origin-feature"]),"career-feature":strs(obj(o.got)["career-feature"])},
  vis:Object.fromEntries(Object.entries(obj(o.vis)).filter(([,v])=>v&&typeof v==="object").map(([k,v])=>[k,{cur:Math.max(0,fin(v.cur)),max:Math.max(0,fin(v.max,25))}])),
  crucible:String(o.crucible||""),spells:strs(o.spells),
- diff:[-30,-20,-10,0,10,20,30].includes(+o.diff)?+o.diff:0,rolls:Array.isArray(o.rolls)?o.rolls.filter(x=>x&&typeof x==="object").slice(0,10):[],vf:Array.isArray(o.vf)?o.vf.filter(x=>["Aer","Aqua","Ignis","Ordo","Perditio","Terra"].includes(x)):[],hp:n0(o.hp,20),maxHp:Math.max(1,n0(o.maxHp,20)),armorBase:n0(o.armorBase,0),move:n0(o.move,0),init:n0(o.init,0),
+ diff:[-30,-20,-10,0,10,20,30].includes(+o.diff)?+o.diff:0,rolls:Array.isArray(o.rolls)?o.rolls.filter(x=>x&&typeof x==="object").slice(0,10):[],vf:Array.isArray(o.vf)?o.vf.filter(x=>["Aer","Aqua","Ignis","Ordo","Perditio","Terra"].includes(x)):[],hp:Math.max(0,fin(o.hp,0)),
+ // maxHp is now the player's own adjustment on top of their origin's HP (default 0). Characters saved before
+ // this change (no hpv) kept the old flat default of 20 there, which would now double-count, so it becomes 0.
+ maxHp:o.hpv===2?fin(o.maxHp,0):(o.maxHp==null||+o.maxHp===20?0:fin(o.maxHp,0)),hpv:2,
+ barrier:Math.max(0,fin(o.barrier,0)),armorBase:fin(o.armorBase,0),chemBase:fin(o.chemBase,0),move:fin(o.move,0),init:fin(o.init,0),
  age:String(o.age||""),bg:String(o.bg||""),faction:String(o.faction||""),motive:String(o.motive||""),bio:String(o.bio||""),log:String(o.log||""),portrait:String(o.portrait||""),showAll:!!o.showAll,
  wpn:(Array.isArray(o.wpn)?o.wpn:[]).filter(x=>x&&typeof x==="object"&&x.name!=null).map(x=>{const w={name:String(x.name),ammo:Math.max(0,Math.floor(fin(x.ammo)))};if(typeof x.type==="string")w.type=x.type;return w}),
  arm:strs(o.arm),conds:strs(o.conds),
@@ -82,7 +86,7 @@ function bonuses(){const b={};
  its.forEach(it=>{for(const[k,v]of bonusEntries(it)){const q=norm(k);b[q]=(b[q]||0)+v}});
  return b}
 // Lines in the Features & Bonuses box that won't do anything, with the reason
-const KNOWN=new Set(["maxhp","armor","movement","initiative"]);
+const KNOWN=new Set(["maxhp","armor","mechanicalarmor","chemicalarmor","energybarrier","movement","initiative"]);
 G.forEach(([k,ab,,sk])=>{KNOWN.add(norm(k));KNOWN.add(norm(ab));sk.forEach(n=>{KNOWN.add(norm(n));KNOWN.add(norm(n.replace("&","and")))})});
 function featIssues(){const out=[];
  S.feats.split("\n").forEach((l,i)=>{if(!l.trim())return;const c=l.indexOf(":"),at=`Line ${i+1}: `;
@@ -414,7 +418,9 @@ document.addEventListener("change",e=>{
  else if(t.id==="cruc"&&t.value){const c=(L.by.crucible||[]).find(x=>x.name===t.value);
   if(c){S.crucible=c.name;EL.forEach(([n])=>{const v=vis(n);v.max=+c["Vis_"+n+"_Max"]||0;if(v.cur>v.max)v.cur=v.max});update()}}});
 
-document.addEventListener("change",e=>{if(e.target.id==="fall"){S.showAll=e.target.checked;save();renderFeats();return}const d=e.target.dataset;if(d.pick){S[d.pick]=e.target.value.trim();update()}});
+document.addEventListener("change",e=>{if(e.target.id==="fall"){S.showAll=e.target.checked;save();renderFeats();return}const d=e.target.dataset;if(d.pick){S[d.pick]=e.target.value.trim();
+ // Choosing an origin sets the HP pool, so start the character at full health for it
+ if(d.pick==="origin")S.hp=hpMax();update()}});
 document.addEventListener("change",e=>{const sl=e.target.dataset.aslot;if(!sl)return;S.arm=S.arm.filter(n=>slotOf(n)!==sl);if(e.target.value)S.arm.push(e.target.value);update()});
 document.addEventListener("click",e=>{const g=e.target.closest("[data-open]");if(!g)return;
  const[k,n]=g.dataset.open.split("|");fk=k;fsel=n;if(!gotNames(k).some(x=>norm(x)===norm(n)))S.showAll=true;tab="feats";showTab();renderFeats();window.scrollTo(0,0)});
@@ -428,16 +434,35 @@ const opts=(label,arr)=>`<option value="">${label}</option>`+arr.map(c=>`<option
 function hpChanged(prev){const now=S.hp,isD=n=>norm(n)==="dying";
  if(prev>0&&now<=0&&!S.conds.some(isD))S.conds.push(((L.by.condition||[]).find(c=>isD(c.name))||{name:"Dying"}).name);
  else if(prev<=0&&now>0){S.conds.filter(isD).forEach(n=>delete S.cdur[n]);S.conds=S.conds.filter(n=>!isD(n))}}
+// Max HP = the origin's HP + Max HP bonuses (feats, gear, conditions…) + the player's own adjustment.
+// A new character with no origin has 0, and isn't treated as dying.
+const originOf=()=>(L.by.origin||[]).find(x=>norm(x.name)===norm(S.origin));
+function hpParts(b=bonuses()){const o=originOf(),org=num(o&&o.HP),bon=b.maxhp||0;return{org,bon,adj:S.maxHp,max:Math.max(0,org+bon+S.maxHp)}}
+const hpMax=b=>hpParts(b).max;
+// The Energy Barrier only exists when something grants it (an "Energy Barrier +N" bonus); otherwise its maximum is 0
+const barrierMax=(b=bonuses())=>Math.max(0,b.energybarrier||0);
+// Two kinds of armor: Mechanical stops physical harm, Chemical resists spells.
+// Library armor gives Mechanical through "Armor" and Chemical through "Chemical"; bonuses name either one.
+function armorTotals(b=bonuses()){
+ const mech=S.armorBase+S.arm.reduce((a,n)=>a+num((W(n)||{}).Armor),0)+(b.mechanicalarmor||0)+(b.armor||0);
+ const chem=S.chemBase+S.arm.reduce((a,n)=>a+num((W(n)||{}).Chemical),0)+(b.chemicalarmor||0);
+ return{mech,chem}}
 function renderDossier(){
- const b=bonuses(),maxE=Math.max(1,S.maxHp+(b.maxhp||0)),hp=Math.max(0,Math.min(maxE,S.hp)),pc=hp/maxE*100,col=pc<=25?"var(--bad)":pc<=50?"#d9822b":"var(--ok)";
- const armT=S.armorBase+S.arm.reduce((a,n)=>a+num((W(n)||{}).Armor),0)+(b.armor||0);
+ const b=bonuses(),hpP=hpParts(b),maxE=hpP.max,hp=Math.max(0,Math.min(maxE,S.hp)),pc=maxE?hp/maxE*100:0,col=pc<=25?"var(--bad)":pc<=50?"#d9822b":"var(--ok)";
+ const{mech,chem}=armorTotals(b);
  const ico=d=>`<svg class="ico" viewBox="0 0 24 24" fill="currentColor" fill-opacity=".2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
- const P=[["Armor",ico("M12 2.5 4 5.5v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10v-6z")+" ARMOR","armorBase",armT,""],
+ const P=[["Mechanical armor (physical)",ico("M12 2.5 4 5.5v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10v-6z")+" MECH","armorBase",mech,""],
+  ["Chemical armor (spell resistance)",ico("M9 2.5h6M10 2.5v6L4.5 18.5A2 2 0 0 0 6.3 21.5h11.4a2 2 0 0 0 1.8-3L14 8.5v-6M7 14.5h10")+" CHEM","chemBase",chem,""],
   ["Movement",ico("M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3")+" MOVEMENT","move",S.move+(b.movement||0)," hex"],
   ["Initiative",ico("M13 2 4 14h7l-1 8 9-12h-7z")+" INITIATIVE","init",S.init+(b.initiative||0),""]];
  setHTML($("#cpills"),P.map(([l,ab,k,t,u])=>`<div class="pill" title="${l}: base ${S[k]}, total ${t}${u}"><b>${t}${u}</b><label>${ab} <input type="number" data-c="${k}" value="${S[k]}" aria-label="${l} base"></label></div>`).join(""));
- const down=hp<=0;$("#hp").classList.toggle("down",down);$("#dying").hidden=!down;
- setHTML($("#hp"),`<div class="tl">${down?`<b class="dn">** DYING **</b>`:`<b>HP</b>`}<span><input type="number" data-hp="hp" value="${hp}" aria-label="Current HP"> / <input type="number" data-hp="maxHp" value="${S.maxHp}" aria-label="Base max HP">${b.maxhp?` <small class="up">(max ${maxE})</small>`:""}</span></div><div class="bar"><i style="width:${pc}%;background:${col}"></i></div><div class="btns">${[-5,-1,1,5].map(x=>`<button data-hd="${x}">${x>0?"+":""}${x}</button>`).join("")}</div>`);
+ const down=maxE>0&&hp<=0;$("#hp").classList.toggle("down",down);$("#dying").hidden=!down;
+ const sgn=v=>(v<0?"−":"+")+Math.abs(v);
+ setHTML($("#hp"),`<div class="tl">${down?`<b class="dn">** DYING **</b>`:`<b>HP</b>`}<span><input type="number" data-hp="hp" value="${hp}" aria-label="Current HP"> / <b>${maxE}</b></span></div><div class="bar"><i style="width:${pc}%;background:${col}"></i></div><div class="btns">${[-5,-1,1,5].map(x=>`<button data-hd="${x}">${x>0?"+":""}${x}</button>`).join("")}</div>`+
+  `<div class="sub hpsum">${originOf()?`Max ${maxE} = ${esc(originOf().name)} ${hpP.org}`:(S.origin?"This origin isn’t in the library, so it adds no HP.":"No origin yet: pick one to set your HP.")+` Max ${maxE} =`}${hpP.bon?` ${sgn(hpP.bon)} bonuses`:""} <label>adjust <input type="number" data-hp="maxHp" value="${S.maxHp}" aria-label="Max HP adjustment"></label></div>`);
+ const bMax=barrierMax(b),bCur=Math.max(0,Math.min(bMax,S.barrier)),bpc=bMax?bCur/bMax*100:0;
+ setHTML($("#barrier"),`<div class="tl"><b>ENERGY BARRIER</b><span><input type="number" data-barrier value="${bCur}" min="0" max="${bMax}" aria-label="Current energy barrier"${bMax?"":" disabled"}> / <b>${bMax}</b></span></div><div class="bar barrier"><i style="width:${bpc}%"></i></div>`+
+  (bMax?`<div class="btns">${[-5,-1,1,5].map(x=>`<button data-bd="${x}">${x>0?"+":""}${x}</button>`).join("")}<button data-bd="full">Recharge</button></div>`:`<div class="sub">None yet. Gear, feats or spells that grant an Energy Barrier fill this.</div>`));
  setHTML($("#cpick"),[["origin","Origin"],["career","Career"]].map(([k,l])=>pickCard(k,l)).join(""));
  $("#pimg").hidden=!S.portrait;$("#pnone").hidden=!!S.portrait;if(S.portrait&&$("#pimg").getAttribute("src")!==S.portrait)$("#pimg").src=S.portrait}
 
@@ -482,13 +507,13 @@ function renderArmory(){
  // One piece per slot. Only drop a second piece when both are known library items: without the library
  // (opened offline as a file, or before it has loaded) every unknown name guesses "Torso", and must not be deleted.
  const bySlot={};S.arm=S.arm.filter(n=>{const sl=slotOf(n);if(bySlot[sl])return !(W(n)&&W(bySlot[sl]));bySlot[sl]=n;return true});
- let armSum=0;
- setHTML($("#aslots"),SLOTS.map(sl=>{const n=bySlot[sl],it=n?W(n)||{}:{},w=num(it.Weight),av=num(it.Armor);if(n){wt+=w;armSum+=av}
+ let armSum=0,chemSum=0;
+ setHTML($("#aslots"),SLOTS.map(sl=>{const n=bySlot[sl],it=n?W(n)||{}:{},w=num(it.Weight),av=num(it.Armor),cv=num(it.Chemical);if(n){wt+=w;armSum+=av;chemSum+=cv}
   const list=(L.by.armor||[]).filter(a=>slotOf(a.name)===sl);
-  return `<div class="tank aslot${n?" on":""}"><div class="tl"><b>${sl}</b><small class="sub" style="margin:0">${n?`+${av} ARM · ${w} lb`:"empty"}</small></div>
+  return `<div class="tank aslot${n?" on":""}"><div class="tl"><b>${sl}</b><small class="sub" style="margin:0">${n?`+${av} MECH${cv?` · +${cv} CHEM`:""} · ${w} lb`:"empty"}</small></div>
    <select data-aslot="${sl}" aria-label="${sl} armor"><option value="">${list.length?"— Nothing —":"— None in library —"}</option>${list.map(a=>`<option${a.name===n?" selected":""}>${esc(a.name)}</option>`).join("")}${n&&!list.some(a=>a.name===n)?`<option selected>${esc(n)}</option>`:""}</select>
    ${it.Notes?`<div class="sub">${esc(it.Notes)}</div>`:""}${bonTags(it)}</div>`}).join(""));
- $("#armtot").textContent="+"+armSum+" ARM from gear";
+ $("#armtot").textContent=`+${armSum} mechanical · +${chemSum} chemical from gear`;
  const wpns=S.wpn.map((x,i)=>{const it=W(x.name)||{},mx=num(it.MaxAmmo),w=num(it.Weight),fire=mx>0,empty=fire&&x.ammo<=0,sk=it.Skill||"One-Handed";wt+=w;
   const ty=fire?wtype(x):"",sp=ty?num(S.ammo[ty]):0,full=x.ammo>=mx,dry=ty&&sp<=0&&!full;
   return `<div class="tank"><div class="tl"><b>${esc(x.name)}</b><span>${w} lb <button data-un="wpn" data-i="${i}" aria-label="Unequip ${esc(x.name)}">×</button></span></div><div class="sub">${esc(sk)} (${CUR.fin[norm(sk)]??`<b class="dn" title="No skill called ${esc(sk)} on this sheet">?</b>`}) · DMG ${esc(it.Damage||"—")}${it.Range?" · RNG "+esc(it.Range):""}</div>${it.Notes?`<div class="sub">${esc(it.Notes)}</div>`:""}${bonTags(it)}${fire?mag(i,x.ammo,mx):""}<div class="tl" style="margin-top:6px;flex-wrap:wrap"><button data-atk="${i}"${empty?" disabled":""} style="white-space:nowrap">${empty?"Empty, reload":fire?"Fire & roll":"Strike & roll"}</button>${fire?`<span class="sub" style="margin:0;white-space:nowrap"><b class="${empty?"dn":""}">${x.ammo}</b> / ${mx}${magPer(mx)>1?` <small>(each ▮ = ${magPer(mx)})</small>`:""} <button data-rl="${i}"${full||dry?" disabled":""}>${dry?"No spare ammo":"↻ Reload"}</button></span>`:""}</div>`+
@@ -510,12 +535,13 @@ function renderArmory(){
  $("#additem").innerHTML=opts("+ Add item…",L.by.item||[])}
 
 document.addEventListener("click",e=>{
- const g=e.target.closest("[data-hd],[data-un],[data-atk],[data-rl],[data-shot],[data-ad],#addcustom,#nextr");if(!g)return;
+ const g=e.target.closest("[data-hd],[data-bd],[data-un],[data-atk],[data-rl],[data-shot],[data-ad],#addcustom,#nextr");if(!g)return;
  if(g.id==="nextr"){const gone=[];
   S.conds=S.conds.filter(n=>{if(!S.cdur[n])return true;if(--S.cdur[n]>0)return true;delete S.cdur[n];gone.push(n);return false});
   $("#rmsg").textContent=gone.length?`Round passed. ${gone.join(", ")} wore off.`:"Round passed.";update();return}
  const d=g.dataset,i=+d.i;
- if(d.hd){const m=Math.max(1,S.maxHp+(bonuses().maxhp||0)),prev=Math.min(m,S.hp);S.hp=Math.max(0,Math.min(m,prev+ +d.hd));hpChanged(prev);update()}
+ if(d.hd){const m=hpMax(),prev=Math.min(m,S.hp);S.hp=Math.max(0,Math.min(m,prev+ +d.hd));hpChanged(prev);update()}
+ else if(d.bd){const m=barrierMax();S.barrier=d.bd==="full"?m:Math.max(0,Math.min(m,Math.min(m,S.barrier)+ +d.bd));update()}
  else if(d.un){
   // Unequipping a tracked weapon puts its loaded rounds back in the pool
   if(d.un==="cond")delete S.cdur[S.conds[i]];
@@ -543,7 +569,8 @@ document.addEventListener("click",e=>{
 document.addEventListener("change",e=>{
  const t=e.target,d=t.dataset,id=t.id;
  if(d.c){S[d.c]=num(t.value);update()}
- else if(d.hp){const prev=S.hp;S[d.hp]=d.hp==="maxHp"?Math.max(1,num(t.value,1)):Math.max(0,num(t.value));if(d.hp==="hp")hpChanged(prev);update()}
+ else if(d.hp){const prev=S.hp;S[d.hp]=d.hp==="maxHp"?Math.round(num(t.value,0)):Math.max(0,Math.min(hpMax(),num(t.value)));if(d.hp==="hp")hpChanged(prev);update()}
+ else if(d.barrier!==undefined){S.barrier=Math.max(0,Math.min(barrierMax(),num(t.value)));update()}
  else if(d.cdur!==undefined){const v=Math.floor(num(t.value));if(v>0)S.cdur[d.cdur]=v;else delete S.cdur[d.cdur];update()}
  else if(d.ammotype!==undefined){S.ammo[d.ammotype]=Math.max(0,Math.floor(num(t.value)));update()}
  else if(d.wtype!==undefined){S.wpn[+d.wtype].type=t.value;update()}

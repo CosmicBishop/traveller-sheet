@@ -123,6 +123,8 @@ button:hover:not(:disabled)::before,button:hover:not(:disabled)::after,.cur::bef
 #vspells .tags span[style*="var(--bad)"]{color:var(--bad)!important}
 .bar{height:14px;border:1px solid var(--line);padding:1px;background:var(--field)}
 .bar i{background:repeating-linear-gradient(90deg,var(--ink) 0 7px,transparent 7px 10px)!important;box-shadow:0 0 8px rgba(var(--g),.5)}
+/* The Energy Barrier draws as a lighter, finer bar so it never reads as HP */
+.bar.barrier i{background:repeating-linear-gradient(90deg,var(--hi) 0 3px,transparent 3px 5px)!important;box-shadow:0 0 10px rgba(var(--g),.7)}
 .tank.down .bar i,.tl:has(#load.dn)+.bar i{background:repeating-linear-gradient(90deg,var(--bad) 0 7px,transparent 7px 10px)!important}
 .dn{text-shadow:0 0 1px var(--bad),0 0 8px color-mix(in srgb,var(--bad) 45%,transparent)}
 .tank.down{animation:blink 1.2s steps(1) infinite}

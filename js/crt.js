@@ -216,7 +216,9 @@ function tick(){const d=new Date(),c=typeof S!=="undefined"?S:null;renderAscii()
  if(!c)return;
  const set=(id,v)=>{v=String(v);if(el(id).textContent!==v)el(id).textContent=v};
  set("m-name",(c.name||"UNNAMED").toUpperCase());set("m-lvl",c.level);
- set("m-oc",`${c.origin||"—"} / ${c.career||"—"}`);set("m-hp",`${c.hp} / ${c.maxHp}${c.hp<=0?"  ** DYING **":""}`)}
+ set("m-oc",`${c.origin||"—"} / ${c.career||"—"}`);
+ const mx=typeof hpMax==="function"?hpMax():c.maxHp,bm=typeof barrierMax==="function"?barrierMax():0,cur=Math.min(c.hp,mx);
+ set("m-hp",`${cur} / ${mx}${mx>0&&cur<=0?"  ** DYING **":""}${bm?`   BARRIER ${Math.min(c.barrier,bm)} / ${bm}`:""}`)}
 
 /* ---------- start ---------- */
 apply();tick();setInterval(tick,1000);

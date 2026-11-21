@@ -142,6 +142,13 @@ label{display:inline-flex;gap:6px;align-items:center}
 .bezel{display:contents}
 #flist,#jlist{background:var(--field);border:1px solid var(--line);padding:8px}
 
+/* HP breakdown line and the Energy Barrier bar */
+.hpsum{margin:6px 0 0;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+.hpsum input{width:3.6em}
+.bar.barrier i{background:var(--amber)}
+#barrier input:disabled{opacity:.5}
+#hp .tl,#barrier .tl{flex-wrap:wrap}#hp .tl b,#barrier .tl b{white-space:nowrap}
+
 /* Journal tab: same two-box layout as Feats; notes are edited in place on the right */
 .jtools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 #jq{flex:1;min-width:10em;max-width:18em}
