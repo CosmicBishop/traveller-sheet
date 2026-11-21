@@ -118,7 +118,7 @@ function calc(dry){
  const pe=$("#pool");pe.textContent=`${spent} / ${pool}`;pe.className=spent>pool?"dn":spent===pool?"up":"";
  if(dry)return;
  renderPts(spent,pool);
- $("#cap").textContent=cap;$("#lcount").textContent=Object.keys(L.all).length?Object.keys(L.all).length+" entries"+(LIBSRC?" · "+LIBSRC:""):"empty";renderFeats();renderVis();renderDossier();renderArmory();renderLog();renderJournal();
+ $("#cap").textContent=cap;const libN=Object.values(L.by).reduce((a,x)=>a+x.length,0);$("#lcount").textContent=libN?libN+" entries"+(LIBSRC?" · "+LIBSRC:""):"empty";renderFeats();renderVis();renderDossier();renderArmory();renderLog();renderJournal();
  save();renderChars();renderFeatWarn()}
 
 function roll(r){
