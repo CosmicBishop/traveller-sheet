@@ -32,7 +32,9 @@ const fix=o=>({name:String(o.name||"Unnamed"),level:Math.max(1,+o.level||1),
  age:String(o.age||""),bg:String(o.bg||""),faction:String(o.faction||""),motive:String(o.motive||""),bio:String(o.bio||""),log:String(o.log||""),portrait:String(o.portrait||""),showAll:!!o.showAll,
  wpn:Array.isArray(o.wpn)?o.wpn:[],arm:Array.isArray(o.arm)?o.arm:[],gear:Array.isArray(o.gear)?o.gear.filter(Boolean):[],conds:Array.isArray(o.conds)?o.conds:[],
  ammo:Object.fromEntries(Object.entries(o.ammo&&typeof o.ammo==="object"?o.ammo:{}).map(([k,v])=>[k,Math.max(0,Math.floor(+v)||0)])),
- cdur:Object.fromEntries(Object.entries(o.cdur&&typeof o.cdur==="object"?o.cdur:{}).map(([k,v])=>[k,Math.floor(+v)||0]).filter(([,v])=>v>0))});
+ cdur:Object.fromEntries(Object.entries(o.cdur&&typeof o.cdur==="object"?o.cdur:{}).map(([k,v])=>[k,Math.floor(+v)||0]).filter(([,v])=>v>0)),
+ journal:Array.isArray(o.journal)?o.journal.filter(x=>x&&typeof x==="object").map(x=>({id:String(x.id||Date.now().toString(36)+Math.random().toString(36).slice(2,6)),
+  title:String(x.title||"Untitled"),date:String(x.date||""),tags:String(x.tags||""),text:String(x.text||"")})):[]});
 // Storage: an index of characters ("chars-v1") plus one key per character ("char-<id>").
 // The old single-sheet key ("sheet-v1") is migrated on first run and left in place as a backup.
 const LS={get(k){try{return JSON.parse(localStorage.getItem(k)||"null")}catch(e){return null}},
@@ -116,7 +118,7 @@ function calc(dry){
  const pe=$("#pool");pe.textContent=`${spent} / ${pool}`;pe.className=spent>pool?"dn":spent===pool?"up":"";
  if(dry)return;
  renderPts(spent,pool);
- $("#cap").textContent=cap;$("#lcount").textContent=Object.keys(L.all).length?Object.keys(L.all).length+" entries"+(LIBSRC?" · "+LIBSRC:""):"empty";renderFeats();renderVis();renderDossier();renderArmory();renderLog();
+ $("#cap").textContent=cap;$("#lcount").textContent=Object.keys(L.all).length?Object.keys(L.all).length+" entries"+(LIBSRC?" · "+LIBSRC:""):"empty";renderFeats();renderVis();renderDossier();renderArmory();renderLog();renderJournal();
  save();renderChars();renderFeatWarn()}
 
 function roll(r){
@@ -173,7 +175,7 @@ document.addEventListener("click",e=>{
   msg.textContent=importData(o,"the pasted text")}
  else if(id==="dl")msg.textContent="Downloaded "+download((S.name.replace(/[\\/:*?"<>|]+/g,"").trim()||"character")+".json",S)+"."
  else if(id==="bkall"){const list=allChars();
-  msg.textContent="Downloaded "+download(`traveller-characters-${new Date().toISOString().slice(0,10)}.json`,{type:"traveller-backup",v:1,saved:new Date().toISOString(),characters:list})+` (${list.length} character${list.length===1?"":"s"}).`}
+  msg.textContent="Downloaded "+download(`traveller-characters-${localDate()}.json`,{type:"traveller-backup",v:1,saved:new Date().toISOString(),characters:list})+` (${list.length} character${list.length===1?"":"s"}).`}
  else if(id==="share")shareLink().then(m=>msg.textContent=m)
  else if(id==="newc"){addChar(fix(DEF));msg.textContent="New character created."}
  else if(id==="dupc"){const o=fix(JSON.parse(JSON.stringify(S)));o.name=(S.name+" copy").slice(0,24);addChar(o);msg.textContent="Duplicated."}
@@ -256,9 +258,62 @@ function setLib(o){if(!o||typeof o!=="object"||Array.isArray(o))throw new Error(
  for(const[k,a]of Object.entries(o)){if(!Array.isArray(a))continue;
   by[k]=a.filter(i=>{const ok=i&&typeof i==="object"&&i.name!=null&&String(i.name).trim()!=="";if(!ok)skip++;return ok})
    .map(i=>typeof i.name==="string"?i:{...i,name:String(i.name)});
-  by[k].forEach(i=>{all[norm(i.name)]=i;n++})}
+  // Journal entries only show on the Journal tab, so they never shadow a feat or item with the same name
+  by[k].forEach(i=>{if(k!=="journal")all[norm(i.name)]=i;n++})}
  L={by,all};return{n,skip}}
-function showTab(){$$("[data-tab]").forEach(x=>x.hidden=x.dataset.tab!==tab);$$("[data-go]").forEach(b=>b.classList.toggle("cur",b.dataset.go===tab))}
+function showTab(){$$("[data-tab]").forEach(x=>x.hidden=x.dataset.tab!==tab);$$("[data-go]").forEach(b=>b.classList.toggle("cur",b.dataset.go===tab));
+ if(tab==="journal")renderJournal()}
+
+/* ---------- journal: the GM's entries from the library (read-only) plus this character's own notes ---------- */
+const JCATS=[["all","All"],["lore","Lore"],["quest","Quests"],["npc","NPCs"],["location","Locations"],["handout","Handouts"],["mine","My notes"]];
+let jk="all",jsel=null;
+// Which GM entries this browser has opened, so new ones are marked NEW (and counted on the tab)
+const jseen=new Set(LS.get("jseen-v1")||[]);
+const catOf=e=>{const c=norm(e.Category||"lore").replace(/s$/,"");return ["lore","quest","npc","location","handout"].includes(c)?c:"lore"};
+const hasVal=v=>v!=null&&v!=="";
+// Today's date where the player is (toISOString would give the UTC date, a day off in the evening)
+const localDate=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
+function jEntries(){
+ const gm=(L.by.journal||[]).map(e=>({key:"g:"+norm(e.name),gm:true,title:e.name,cat:catOf(e),catLabel:String(e.Category||"Lore"),
+  session:e.Session,status:e.Status,text:String(e.Description||e.Effect||"")}))
+  .sort((a,b)=>num(b.session,-1)-num(a.session,-1)||a.title.localeCompare(b.title));
+ const mine=S.journal.map(n=>({key:"n:"+n.id,gm:false,title:n.title||"Untitled",cat:"mine",date:n.date,tags:n.tags,text:n.text,n}))
+  .sort((a,b)=>String(b.date).localeCompare(String(a.date))||a.title.localeCompare(b.title));
+ return gm.concat(mine)}
+function renderJournal(){
+ const all=jEntries(),q=norm($("#jq").value||"");
+ const cats=JCATS.filter(([k])=>k==="all"||k==="mine"||all.some(x=>x.cat===k));
+ if(!cats.some(([k])=>k===jk))jk="all";
+ const shown=all.filter(x=>(jk==="all"||x.cat===jk)&&(!q||norm(x.title+" "+x.text+" "+(x.tags||"")).includes(q)));
+ if(!shown.some(x=>x.key===jsel))jsel=shown[0]?shown[0].key:null;
+ const x=shown.find(x=>x.key===jsel);
+ if(x&&x.gm&&tab==="journal"&&!jseen.has(x.key)){jseen.add(x.key);LS.set("jseen-v1",[...jseen])}
+ const unseen=all.filter(x=>x.gm&&!jseen.has(x.key)).length;
+ $("#jbadge").textContent=unseen?` (${unseen})`:"";
+ $("#jk").innerHTML=cats.map(([k,l])=>`<button data-jk="${k}"${k===jk?' class="cur"':""}>${l}</button>`).join("");
+ const fl=$("#jlist"),keep=fl.scrollTop;
+ fl.innerHTML=shown.length?shown.map(x=>{
+  const sub=x.gm?[x.catLabel,hasVal(x.session)?"S"+x.session:"",x.status||""].filter(Boolean).join(" · "):["My note",x.date||""].filter(Boolean).join(" · ");
+  return `<div class="tank it${x.key===jsel?" sel":""}" data-jsel="${esc(x.key)}" role="button" tabindex="0" aria-pressed="${x.key===jsel}"><div class="tl"><span>${esc(x.title)}</span>${x.gm&&!jseen.has(x.key)?'<small class="new">NEW</small>':""}</div><small class="jsub">${esc(sub.toUpperCase())}</small></div>`}).join("")
+  :`<div class="sub">${all.length?"Nothing matches.":"No entries yet. Your GM’s lore, quests and handouts appear here, and + New note adds your own."}</div>`;
+ fl.scrollTop=keep;
+ setHTML($("#jinfo"),!x?`<div class="tank"><div class="sub" style="margin:0">Select an entry to read it.</div></div>`
+  :x.gm?`<div class="tank"><div class="tl"><b>${esc(x.title)}</b><small class="sub" style="margin:0">${esc(x.catLabel.toUpperCase())}</small></div><div class="tags">${[hasVal(x.session)?"Session "+x.session:"",x.status?"Status: "+x.status:"","From your GM"].filter(Boolean).map(t=>`<span>${esc(t)}</span>`).join("")}</div><div class="sub">${esc(x.text||"No text.")}</div></div>`
+  :`<div class="tank jedit"><label>Title <input type="text" data-jn="title" value="${esc(x.n.title)}" maxlength="80"></label><label>Date <input type="date" data-jn="date" value="${esc(x.n.date)}"></label><label>Tags <input type="text" data-jn="tags" value="${esc(x.n.tags)}" placeholder="npc, fort, clue"></label><textarea data-jn="text" rows="12" placeholder="What happened, who you met, what you owe…" aria-label="Note text">${esc(x.n.text)}</textarea><div class="btns"><button data-jdel>Delete note</button><span class="sub" style="margin:0">Saved with this character.</span></div></div>`)}
+document.addEventListener("click",e=>{const k=e.target.closest("[data-jk]"),s=e.target.closest("[data-jsel]");
+ if(k){jk=k.dataset.jk;renderJournal()}
+ else if(s){jsel=s.dataset.jsel;renderJournal()}
+ else if(e.target.closest("#jadd")){const n={id:newId(),title:"New note",date:localDate(),tags:"",text:""};
+  S.journal.push(n);if(jk!=="all")jk="mine";$("#jq").value="";jsel="n:"+n.id;save();renderJournal();const t=$('#jinfo [data-jn="title"]');if(t){t.focus();t.select()}}
+ else if(e.target.closest("[data-jdel]")){const n=S.journal.find(x=>"n:"+x.id===jsel);if(!n||!confirm(`Delete the note “${n.title}”? This can’t be undone.`))return;
+  S.journal=S.journal.filter(x=>x!==n);jsel=null;save();renderJournal()}});
+document.addEventListener("input",e=>{const f=e.target.dataset&&e.target.dataset.jn;
+ if(f){const n=S.journal.find(x=>"n:"+x.id===jsel);if(!n)return;n[f]=e.target.value;save();
+  // Keep the list entry in step without redrawing the editor being typed in
+  const it=[...$$("#jlist [data-jsel]")].find(x=>x.dataset.jsel===jsel);
+  if(it){it.querySelector(".tl span").textContent=n.title||"Untitled";it.querySelector(".jsub").textContent=("My note"+(n.date?" · "+n.date:"")).toUpperCase()}}
+ else if(e.target.id==="jq")renderJournal()});
+document.addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.dataset&&e.target.dataset.jsel){e.preventDefault();jsel=e.target.dataset.jsel;renderJournal()}});
 
 function prereq(it){const r=[];let ok=true;const add=(l,m)=>{r.push([l,m]);if(!m)ok=false};
  for(const[k,v]of Object.entries(it)){if(!/_req$/i.test(k)||!v)continue;

@@ -59,16 +59,16 @@ label{display:inline-flex;gap:6px;align-items:center}
 .two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:14px;margin-top:10px}
 @media(max-width:640px){.two{grid-template-columns:1fr}}
 .flist{display:grid;gap:6px;align-content:start;height:440px;overflow-y:auto;padding-right:6px;scrollbar-color:var(--line) transparent;scrollbar-width:thin}
-#finfo{height:440px;overflow-y:auto;scrollbar-color:var(--line) transparent;scrollbar-width:thin}
-#finfo>.tank{min-height:100%}
-@media(max-width:640px){.flist{height:300px}#finfo{height:auto}#finfo>.tank{min-height:0}}
+#finfo,#jinfo{height:440px;overflow-y:auto;scrollbar-color:var(--line) transparent;scrollbar-width:thin}
+#finfo>.tank,#jinfo>.tank{min-height:100%}
+@media(max-width:640px){.flist{height:300px}#finfo,#jinfo{height:auto}#finfo>.tank,#jinfo>.tank{min-height:0}}
 .it{cursor:pointer}.it:hover{border-color:var(--amber)}
 .it.sel{border-color:var(--amber);box-shadow:inset 3px 0 0 var(--amber)}
 .it small{color:var(--dim);letter-spacing:.05em}
 .lock{opacity:.6}
 .tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.tags span{border:1px solid var(--line);padding:1px 8px;font-size:.85em}
-#finfo .sub{white-space:pre-wrap;color:var(--ink);font-size:.9em}
-#finfo .tl b{color:var(--hi);font-size:1.1em}
+#finfo .sub,#jinfo .sub{white-space:pre-wrap;color:var(--ink);font-size:.9em}
+#finfo .tl b,#jinfo .tl b{color:var(--hi);font-size:1.1em}
 .ch+.btns{margin-top:0}
 .tank{border:1px solid var(--line);background:var(--field);padding:8px 10px}
 .tl{display:flex;justify-content:space-between;gap:8px;align-items:center}
@@ -140,7 +140,17 @@ label{display:inline-flex;gap:6px;align-items:center}
 .motd,.foot,.bezel-bar,.crt-glass,.crt-grain,.crt-band,.crt-dot,#pwron,#boot,#dicetray,.asciiport{display:none}
 :root:not([data-skin="crt"]) .crt-only,:root[data-skin="crt"] .classic-only{display:none!important}
 .bezel{display:contents}
-#flist{background:var(--field);border:1px solid var(--line);padding:8px}
+#flist,#jlist{background:var(--field);border:1px solid var(--line);padding:8px}
+
+/* Journal tab: same two-box layout as Feats; notes are edited in place on the right */
+.jtools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+#jq{flex:1;min-width:10em;max-width:18em}
+.jedit{display:grid;gap:8px}
+.jedit label{display:grid;grid-template-columns:4.5em 1fr;align-items:center;gap:8px;color:var(--dim)}
+.jedit input{width:100%}
+.jedit textarea{min-height:240px;margin:0}
+.it .new,.jnew{color:var(--ok)}
+.cur .jnew,button:hover .jnew{color:inherit}
 
 /* Settings tab: look and display options (both looks) */
 .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:6px 24px;margin-top:6px}

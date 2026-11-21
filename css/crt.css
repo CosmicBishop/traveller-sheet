@@ -96,7 +96,7 @@ summary{color:var(--hi)}summary::marker{content:"# "}
 .title input{color:var(--bg)!important;text-shadow:none}
 /* Inner boxes are single-line (┌──┐) */
 .tank,.pill,.led,.rlog,#roll,.aslot{background:var(--field);border:1px solid var(--line);border-radius:0}
-.pill b,.eff,#finfo .tl b,.pts b{color:var(--hi)}
+.pill b,.eff,#finfo .tl b,#jinfo .tl b,.pts b{color:var(--hi)}
 
 /* Fields: underline only, like a form on a terminal */
 input[type=number],input[type=text],input[type=search],select,textarea,#sks,#dice{background:transparent;border:0;border-bottom:1px dashed var(--dim);border-radius:0;color:var(--ink)}
@@ -116,7 +116,7 @@ button:hover:not(:disabled)::before,button:hover:not(:disabled)::after,.cur::bef
 .nm:hover,.it:hover{background:rgba(var(--g),.12)}
 .it.sel{box-shadow:inset 4px 0 0 var(--ink),0 0 10px rgba(var(--g),.25)}
 /* Feats tab: the list sits in the same black box as the description beside it */
-#flist{background:var(--field);border:1px solid var(--line);padding:8px}
+#flist,#jlist{background:var(--field);border:1px solid var(--line);padding:8px}
 
 /* One phosphor: element and HP colours follow the screen, bars become block characters */
 #vtanks .tl span[style],#vfilter button[style],#vspells .tags span[style]{color:var(--ink)!important}

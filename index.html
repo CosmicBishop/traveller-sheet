@@ -41,7 +41,7 @@
 # HP:                 <b id="m-hp">…</b>
 #----------------------------------------------------------------
 <span class="k">[traveller@terminal ~]$</span> ./charsheet --interactive <span class="cursor"></span></pre>
- <div class="tabs panel"><button data-go="char" class="cur">Character</button><button data-go="skills">Skills</button><button data-go="feats">Feats</button><button data-go="vis">Vis</button><button data-go="armory">Armory</button><button data-go="data">Settings</button><b id="dying" class="dn" role="status" hidden>** DYING **</b><span id="savewarn" class="dn" role="alert" style="font-size:.85rem" hidden>!! Not saving: browser storage is full or blocked. Download your character.</span><label class="diff">Difficulty <select id="diff" aria-label="Difficulty modifier"><option value="30">Trivial (+30)</option><option value="20">Effortless (+20)</option><option value="10">Simple (+10)</option><option value="0">Normal (0)</option><option value="-10">Difficult (-10)</option><option value="-20">Challenging (-20)</option><option value="-30">Complicated (-30)</option></select></label><form id="dicef" class="dicebox"><input type="text" id="dice" placeholder="3d6+2" aria-label="Dice to roll" autocomplete="off" spellcheck="false"><button>Roll</button><span id="dicer" role="status" aria-live="polite"></span></form></div>
+ <div class="tabs panel"><button data-go="char" class="cur">Character</button><button data-go="skills">Skills</button><button data-go="feats">Feats</button><button data-go="vis">Vis</button><button data-go="armory">Armory</button><button data-go="journal">Journal<span id="jbadge" class="jnew"></span></button><button data-go="data">Settings</button><b id="dying" class="dn" role="status" hidden>** DYING **</b><span id="savewarn" class="dn" role="alert" style="font-size:.85rem" hidden>!! Not saving: browser storage is full or blocked. Download your character.</span><label class="diff">Difficulty <select id="diff" aria-label="Difficulty modifier"><option value="30">Trivial (+30)</option><option value="20">Effortless (+20)</option><option value="10">Simple (+10)</option><option value="0">Normal (0)</option><option value="-10">Difficult (-10)</option><option value="-20">Challenging (-20)</option><option value="-30">Complicated (-30)</option></select></label><form id="dicef" class="dicebox"><input type="text" id="dice" placeholder="3d6+2" aria-label="Dice to roll" autocomplete="off" spellcheck="false"><button>Roll</button><span id="dicer" role="status" aria-live="polite"></span></form></div>
  <div class="panel" data-tab="char" style="margin-top:14px">
   <div class="head" style="align-items:center"><div class="title">&gt; <input data-name aria-label="Character name" maxlength="24"></div><select id="chars2" aria-label="Switch character"></select></div>
   <div class="cols">
@@ -85,6 +85,10 @@
   <textarea id="feats" rows="4" spellcheck="false" aria-describedby="fwarn"></textarea>
   <div id="fwarn" class="sub dn fwarn" role="status" hidden></div>
  </details>
+ <section class="panel" data-tab="journal" hidden>
+  <div class="jtools"><span id="jk" class="btns" style="margin:0" role="group" aria-label="Show journal entries"></span><input type="search" id="jq" placeholder="Search journal…" aria-label="Search journal" autocomplete="off"><button id="jadd">+ New note</button></div>
+  <div class="two"><div id="jlist" class="flist"></div><div id="jinfo"></div></div>
+ </section>
  <section class="panel" data-tab="feats" hidden>
   <div class="btns"><b>Browse</b><span id="fk" class="btns" style="margin:0"></span><label class="btn"><input type="checkbox" id="fall"> Show all</label><div class="pill" style="margin-left:auto"><label>FEAT PTS</label><b id="fpts"></b></div></div>
   <div class="two"><div id="flist" class="flist"></div><div id="finfo"></div></div>
