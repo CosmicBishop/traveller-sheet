@@ -453,9 +453,11 @@ function renderDossier(){
  const ico=d=>`<svg class="ico" viewBox="0 0 24 24" fill="currentColor" fill-opacity=".2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
  const P=[["Mechanical armor (physical)",ico("M12 2.5 4 5.5v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10v-6z")+" MECH","armorBase",mech,""],
   ["Chemical armor (spell resistance)",ico("M9 2.5h6M10 2.5v6L4.5 18.5A2 2 0 0 0 6.3 21.5h11.4a2 2 0 0 0 1.8-3L14 8.5v-6M7 14.5h10")+" CHEM","chemBase",chem,""],
-  ["Movement",ico("M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3")+" MOVEMENT","move",S.move+(b.movement||0)," hex"],
+  // Movement = the origin's Starting Movement + Movement bonuses + the player's own base value (default 0)
+  ["Movement",ico("M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3")+" MOVEMENT","move",num((originOf()||{}).Movement)+S.move+(b.movement||0)," hex"],
   ["Initiative",ico("M13 2 4 14h7l-1 8 9-12h-7z")+" INITIATIVE","init",S.init+(b.initiative||0),""]];
- setHTML($("#cpills"),P.map(([l,ab,k,t,u])=>`<div class="pill" title="${l}: base ${S[k]}, total ${t}${u}"><b>${t}${u}</b><label>${ab} <input type="number" data-c="${k}" value="${S[k]}" aria-label="${l} base"></label></div>`).join(""));
+ const fromOrigin=k=>k==="move"&&originOf()&&num(originOf().Movement)?`${esc(originOf().name)} ${num(originOf().Movement)} + `:"";
+ setHTML($("#cpills"),P.map(([l,ab,k,t,u])=>`<div class="pill" title="${l}: ${fromOrigin(k)}base ${S[k]}, total ${t}${u}"><b>${t}${u}</b><label>${ab} <input type="number" data-c="${k}" value="${S[k]}" aria-label="${l} base"></label></div>`).join(""));
  const down=maxE>0&&hp<=0;$("#hp").classList.toggle("down",down);$("#dying").hidden=!down;
  const sgn=v=>(v<0?"−":"+")+Math.abs(v);
  setHTML($("#hp"),`<div class="tl">${down?`<b class="dn">** DYING **</b>`:`<b>HP</b>`}<span><input type="number" data-hp="hp" value="${hp}" aria-label="Current HP"> / <b>${maxE}</b></span></div><div class="bar"><i style="width:${pc}%;background:${col}"></i></div><div class="btns">${[-5,-1,1,5].map(x=>`<button data-hd="${x}">${x>0?"+":""}${x}</button>`).join("")}</div>`+
