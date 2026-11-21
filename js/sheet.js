@@ -46,9 +46,11 @@ const fix=o=>(o=obj(o),{name:String(o.name||"Unnamed"),level:Math.max(1,Math.flo
  diff:[-30,-20,-10,0,10,20,30].includes(+o.diff)?+o.diff:0,rolls:Array.isArray(o.rolls)?o.rolls.filter(x=>x&&typeof x==="object").slice(0,10):[],vf:Array.isArray(o.vf)?o.vf.filter(x=>["Aer","Aqua","Ignis","Ordo","Perditio","Terra"].includes(x)):[],hp:Math.max(0,fin(o.hp,0)),
  // maxHp is now the player's own adjustment on top of their origin's HP (default 0). Characters saved before
  // this change (no hpv) kept the old flat default of 20 there, which would now double-count, so it becomes 0.
- maxHp:o.hpv===2?fin(o.maxHp,0):(o.maxHp==null||+o.maxHp===20?0:fin(o.maxHp,0)),hpv:2,
+ // (Any old value, not just 20, was a full max rather than an adjustment, so all of them start again at 0.)
+ maxHp:o.hpv===2?fin(o.maxHp,0):0,hpv:2,
  barrier:Math.max(0,fin(o.barrier,0)),armorBase:fin(o.armorBase,0),chemBase:fin(o.chemBase,0),move:fin(o.move,0),init:fin(o.init,0),
- age:String(o.age||""),bg:String(o.bg||""),faction:String(o.faction||""),motive:String(o.motive||""),bio:String(o.bio||""),log:String(o.log||""),portrait:String(o.portrait||""),showAll:!!o.showAll,
+ age:String(o.age||""),bg:String(o.bg||""),faction:String(o.faction||""),motive:String(o.motive||""),bio:String(o.bio||""),log:String(o.log||""),// Portraits are only ever embedded images; a web address in an imported file would make the sheet fetch another site
+ portrait:/^data:image\/(png|jpe?g|gif|webp);base64,[a-z0-9+/=]+$/i.test(String(o.portrait||""))?String(o.portrait):"",showAll:!!o.showAll,
  wpn:(Array.isArray(o.wpn)?o.wpn:[]).filter(x=>x&&typeof x==="object"&&x.name!=null).map(x=>{const w={name:String(x.name),ammo:Math.max(0,Math.floor(fin(x.ammo)))};if(typeof x.type==="string")w.type=x.type;return w}),
  arm:strs(o.arm),conds:strs(o.conds),
  gear:(Array.isArray(o.gear)?o.gear:[]).filter(x=>x&&typeof x==="object").map(g=>g.link!=null?{link:String(g.link),qty:Math.max(0,fin(g.qty,1))}:{name:String(g.name||"Item"),qty:Math.max(0,fin(g.qty,1)),weight:Math.max(0,fin(g.weight))}),
@@ -70,23 +72,40 @@ let S;try{S=fix(LS.get("char-"+IDX.cur)||DEF)}catch(e){S=fix(DEF)}
 MEM[IDX.cur]=S;
 // The sheet may be open twice (say the installed app and a browser tab). Before writing the list of
 // characters, pick up any another copy added, so neither copy drops the other's new characters.
-function mergeIndex(){const st=LS.get("chars-v1");if(!st||!Array.isArray(st.list))return false;let added=false;
- st.list.forEach(c=>{if(c&&c.id&&!IDX.list.some(x=>x.id===c.id)&&LS.get("char-"+c.id)){IDX.list.push({id:c.id,name:String(c.name||"")});added=true}});return added}
+// It also forgets characters the other copy deleted (their saved data is gone), except the one open here.
+function mergeIndex(){const st=LS.get("chars-v1");if(!st||!Array.isArray(st.list))return false;let changed=false;
+ st.list.forEach(c=>{if(c&&c.id&&!IDX.list.some(x=>x.id===c.id)&&LS.get("char-"+c.id)){IDX.list.push({id:c.id,name:String(c.name||"")});changed=true}});
+ const keep=IDX.list.filter(c=>c.id===IDX.cur||LS.get("char-"+c.id)!==null);
+ if(keep.length!==IDX.list.length){IDX.list=keep;changed=true}
+ return changed}
 const save=()=>{const c=IDX.list.find(c=>c.id===IDX.cur);if(c)c.name=S.name;MEM[IDX.cur]=S;mergeIndex();
  const ok=LS.set("char-"+IDX.cur,S)&&LS.set("chars-v1",IDX);$("#savewarn").hidden=ok};
 window.addEventListener("storage",e=>{if(e.key==="chars-v1"&&mergeIndex())renderChars()});
 
-function bonuses(){const b={};
+// Shorthand names for bonuses, written the way the library exporter also accepts them
+const BONUS_ALIAS={hp:"maxhp",barrier:"energybarrier",mecharmor:"mechanicalarmor",physicalarmor:"mechanicalarmor",chemarmor:"chemicalarmor",spellresistance:"chemicalarmor"};
+const bkey=k=>{const q=norm(k);return BONUS_ALIAS[q]||q};
+// noAuto leaves out the origin/career features that are granted automatically: their requirements are
+// checked against stats without them, so a feature can never unlock itself with its own bonus
+function bonuses(noAuto){const b={};
  S.feats.split("\n").forEach(l=>{const i=l.indexOf(":");if(i<0)return;
   l.slice(i+1).split(",").forEach(t=>{const m=t.trim().match(/^(.+?)\s*([+-]\s*\d+(?:\.\d+)?)$/);
-   if(m){const k=norm(m[1]);b[k]=(b[k]||0)+Number(m[2].replace(/\s/g,""))}})});
- const its=[...S.got.feat,...gotNames("origin-feature"),...gotNames("career-feature")].map(n=>L.all[norm(n)]);
+   if(m){const k=bkey(m[1]);b[k]=(b[k]||0)+Number(m[2].replace(/\s/g,""))}})});
+ const its=[...S.got.feat,...(noAuto?[]:[...gotNames("origin-feature"),...gotNames("career-feature")])].map(n=>L.all[norm(n)]);
  ["career","origin"].forEach(k=>its.push((L.by[k]||[]).find(x=>norm(x.name)===norm(S[k]))));
  S.arm.forEach(n=>its.push(L.all[norm(n)]));S.wpn.forEach(x=>its.push(L.all[norm(x.name)]));S.conds.forEach(n=>its.push(L.all[norm(n)]));
- its.forEach(it=>{for(const[k,v]of bonusEntries(it)){const q=norm(k);b[q]=(b[q]||0)+v}});
+ its.forEach(it=>{for(const[k,v]of bonusEntries(it)){const q=bkey(k);b[q]=(b[q]||0)+v}});
  return b}
+// The stats requirements are checked against: everything except auto-granted features (see above).
+// Worked out fresh for each render, so it is never empty on the first load or left over from another character.
+let REQ=null;
+function reqStats(){const b=bonuses(true),attr={},skill={};
+ G.forEach(([k,ab,,sk])=>{const e=(+S.attr[k]||0)+(b[norm(k)]||0)+(b[norm(ab)]||0),f=3*e,m=mult(e);attr[norm(k)]=attr[norm(ab)]=e;
+  sk.forEach(n=>{const sb=(b[norm(n)]||0)+(n.includes("&")?b[norm(n.replace("&","and"))]||0:0),v=clamp(f+Math.floor((S.pts[n]||0)*m)+sb);
+   skill[norm(n)]=skill[norm(n.replace("&","and"))]=v})});
+ return{lvl:Math.max(1,Math.floor(S.level)||1),attr,skill}}
 // Lines in the Features & Bonuses box that won't do anything, with the reason
-const KNOWN=new Set(["maxhp","armor","mechanicalarmor","chemicalarmor","energybarrier","movement","initiative"]);
+const KNOWN=new Set(["maxhp","armor","mechanicalarmor","chemicalarmor","energybarrier","movement","initiative",...Object.keys(BONUS_ALIAS)]);
 G.forEach(([k,ab,,sk])=>{KNOWN.add(norm(k));KNOWN.add(norm(ab));sk.forEach(n=>{KNOWN.add(norm(n));KNOWN.add(norm(n.replace("&","and")))})});
 function featIssues(){const out=[];
  S.feats.split("\n").forEach((l,i)=>{if(!l.trim())return;const c=l.indexOf(":"),at=`Line ${i+1}: `;
@@ -124,6 +143,7 @@ function fill(){$("[data-name]").value=S.name;sizeName();$("#diff").value=S.diff
 
 function update(){calc(true);calc()}
 function calc(dry){
+ REQ=null;dedupeArmor();
  const b=bonuses(),lvl=Math.max(1,Math.floor(S.level)||1),cap=10+lvl*5,pool=120+(lvl-1)*40;let spent=0;const A={};CUR={lvl,attr:{},skill:{},fin:{}};
  G.forEach(([k,ab])=>{
   const bb=(b[norm(k)]||0)+(b[norm(ab)]||0),e=(+S.attr[k]||0)+bb,m=mult(e);
@@ -232,10 +252,13 @@ function renderBackup(){const el=$("#bkinfo");if(!el)return;const t=LS.get("bk-v
 // A backup file adds every character in it (skipping exact copies already here); anything else is one character
 function importData(o,label){
  if(o&&o.type==="traveller-backup"&&Array.isArray(o.characters)){save();
-  const have=new Set(IDX.list.map(c=>JSON.stringify(MEM[c.id]||fix(LS.get("char-"+c.id)||DEF))));let n=0,skip=0;
+  const have=new Set(IDX.list.map(c=>JSON.stringify(MEM[c.id]||fix(LS.get("char-"+c.id)||DEF))));let n=0,skip=0,full=0;
   o.characters.forEach(c=>{let f;try{f=fix(c)}catch(e){return}if(have.has(JSON.stringify(f))){skip++;return}
-   const id=newId();IDX.list.push({id,name:f.name});MEM[id]=f;LS.set("char-"+id,f);n++});
-  LS.set("chars-v1",IDX);renderChars();return `Restored ${n} character${n===1?"":"s"} from ${label}.`+(skip?` Skipped ${skip} already here.`:"")}
+   // A character that doesn't fit in storage isn't added at all, rather than reappearing blank after a reload
+   const id=newId();if(!LS.set("char-"+id,f)){full++;return}IDX.list.push({id,name:f.name});MEM[id]=f;n++});
+  LS.set("chars-v1",IDX);renderChars();
+  return `Restored ${n} character${n===1?"":"s"} from ${label}.`+(skip?` Skipped ${skip} already here.`:"")+
+   (full?` !! ${full} didn’t fit: this browser’s storage is full. Delete characters or portraits you don’t need, then open the backup again.`:"")}
  const c=fix(o);addChar(c);return `Opened ${c.name} as a new character.`}
 // Share links carry one character (no portrait or roll log) compressed into the address after #c=
 const b64enc=u8=>{let s="";for(let i=0;i<u8.length;i+=8192)s+=String.fromCharCode.apply(null,u8.subarray(i,i+8192));return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")};
@@ -246,8 +269,9 @@ async function pack(obj){const bytes=new TextEncoder().encode(JSON.stringify(obj
 async function unpack(str){const bytes=b64dec(str.slice(1));
  if(str[0]==="z"){const st=new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));return JSON.parse(await new Response(st).text())}
  return JSON.parse(new TextDecoder().decode(bytes))}
-async function shareLink(){const url=location.href.split("#")[0]+"#c="+await pack({...S,portrait:"",rolls:[]});
- try{await navigator.clipboard.writeText(url);return `Share link for ${S.name} copied. Anyone who opens it can add the character (without its portrait).`}
+// The player's journal notes stay private: a share link carries the character, not their notes
+async function shareLink(){const url=location.href.split("#")[0]+"#c="+await pack({...S,portrait:"",rolls:[],journal:[]});
+ try{await navigator.clipboard.writeText(url);return `Share link for ${S.name} copied. Anyone who opens it can add the character, without its portrait or your journal notes. To move everything, use Back up all.`}
  catch(e){$("#io").value=url;$("#io").select();return "Couldn’t copy automatically, so the link is in the box below. Copy it from there."}}
 document.addEventListener("change",e=>{const t=e.target;
  if(t.id==="chars2"&&t.value==="__new")addChar(fix(DEF));
@@ -344,13 +368,14 @@ document.addEventListener("input",e=>{const f=e.target.dataset&&e.target.dataset
 document.addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.dataset&&e.target.dataset.jsel){e.preventDefault();jsel=e.target.dataset.jsel;renderJournal()}});
 
 function prereq(it){const r=[];let ok=true;const add=(l,m)=>{r.push([l,m]);if(!m)ok=false};
+ const R=REQ||(REQ=reqStats());
  for(const[k,v]of Object.entries(it)){if(!/_req$/i.test(k)||!v)continue;
   const w=k.slice(0,-4),q=norm(w),l=[].concat(v).map(nm);
-  if(q==="level")add("Level "+v,CUR.lvl>=+v);
+  if(q==="level")add("Level "+v,R.lvl>=+v);
   else if(q==="career"||q==="origin")add(w+": "+l.join(" / "),l.some(x=>norm(x)===norm(S[q])));
   else if(q==="feat")l.forEach(x=>add("Feat: "+x,S.got.feat.some(y=>norm(y)===norm(x))));
-  else if(q in CUR.attr)add(w+" "+v,CUR.attr[q]>=+v);
-  else if(q in CUR.skill)add(w.replace(/_/g," ")+" "+v,CUR.skill[q]>=+v)}
+  else if(q in R.attr)add(w+" "+v,R.attr[q]>=+v);
+  else if(q in R.skill)add(w.replace(/_/g," ")+" "+v,R.skill[q]>=+v)}
  return{r,ok}}
 
 function autoFeat(k2){const k=k2.split("-")[0],parent=(L.by[k]||[]).find(x=>norm(x.name)===norm(S[k]));
@@ -420,7 +445,8 @@ document.addEventListener("change",e=>{
 
 document.addEventListener("change",e=>{if(e.target.id==="fall"){S.showAll=e.target.checked;save();renderFeats();return}const d=e.target.dataset;if(d.pick){S[d.pick]=e.target.value.trim();
  // Choosing an origin sets the HP pool, so start the character at full health for it
- if(d.pick==="origin")S.hp=hpMax();update()}});
+ // (only when the origin is in the library: without it the max is unknown, and HP must be left alone)
+ if(d.pick==="origin"&&originOf()){const prev=S.hp;S.hp=hpMax();hpChanged(prev)}update()}});
 document.addEventListener("change",e=>{const sl=e.target.dataset.aslot;if(!sl)return;S.arm=S.arm.filter(n=>slotOf(n)!==sl);if(e.target.value)S.arm.push(e.target.value);update()});
 document.addEventListener("click",e=>{const g=e.target.closest("[data-open]");if(!g)return;
  const[k,n]=g.dataset.open.split("|");fk=k;fsel=n;if(!gotNames(k).some(x=>norm(x)===norm(n)))S.showAll=true;tab="feats";showTab();renderFeats();window.scrollTo(0,0)});
@@ -439,6 +465,11 @@ function hpChanged(prev){const now=S.hp,isD=n=>norm(n)==="dying";
 const originOf=()=>(L.by.origin||[]).find(x=>norm(x.name)===norm(S.origin));
 function hpParts(b=bonuses()){const o=originOf(),org=num(o&&o.HP),bon=b.maxhp||0;return{org,bon,adj:S.maxHp,max:Math.max(0,org+bon+S.maxHp)}}
 const hpMax=b=>hpParts(b).max;
+// When the chosen origin isn't in the library (opened offline as a file, library not loaded yet, origin renamed)
+// the true max is unknown, so HP changes are only kept from going below 0, never cut down to a wrong max.
+const hpKnown=()=>!S.origin||!!originOf();
+const hpCap=()=>hpKnown()?hpMax():Infinity;
+const capHp=v=>Math.max(0,Math.min(hpCap(),v));
 // The Energy Barrier only exists when something grants it (an "Energy Barrier +N" bonus); otherwise its maximum is 0
 const barrierMax=(b=bonuses())=>Math.max(0,b.energybarrier||0);
 // Two kinds of armor: Mechanical stops physical harm, Chemical resists spells.
@@ -448,7 +479,8 @@ function armorTotals(b=bonuses()){
  const chem=S.chemBase+S.arm.reduce((a,n)=>a+num((W(n)||{}).Chemical),0)+(b.chemicalarmor||0);
  return{mech,chem}}
 function renderDossier(){
- const b=bonuses(),hpP=hpParts(b),maxE=hpP.max,hp=Math.max(0,Math.min(maxE,S.hp)),pc=maxE?hp/maxE*100:0,col=pc<=25?"var(--bad)":pc<=50?"#d9822b":"var(--ok)";
+ // With the origin missing from the library the max is unknown: show the stored HP and "?" instead of 0 / 0
+ const b=bonuses(),hpP=hpParts(b),known=hpKnown(),maxE=hpP.max,hp=known?Math.max(0,Math.min(maxE,S.hp)):S.hp,pc=known?(maxE?hp/maxE*100:0):100,col=pc<=25?"var(--bad)":pc<=50?"#d9822b":"var(--ok)";
  const{mech,chem}=armorTotals(b);
  const ico=d=>`<svg class="ico" viewBox="0 0 24 24" fill="currentColor" fill-opacity=".2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
  const P=[["Mechanical armor (physical)",ico("M12 2.5 4 5.5v6c0 5 3.4 8.6 8 10 4.6-1.4 8-5 8-10v-6z")+" MECH","armorBase",mech,""],
@@ -458,13 +490,14 @@ function renderDossier(){
   ["Initiative",ico("M13 2 4 14h7l-1 8 9-12h-7z")+" INITIATIVE","init",S.init+(b.initiative||0),""]];
  const fromOrigin=k=>k==="move"&&originOf()&&num(originOf().Movement)?`${esc(originOf().name)} ${num(originOf().Movement)} + `:"";
  setHTML($("#cpills"),P.map(([l,ab,k,t,u])=>`<div class="pill" title="${l}: ${fromOrigin(k)}base ${S[k]}, total ${t}${u}"><b>${t}${u}</b><label>${ab} <input type="number" data-c="${k}" value="${S[k]}" aria-label="${l} base"></label></div>`).join(""));
- const down=maxE>0&&hp<=0;$("#hp").classList.toggle("down",down);$("#dying").hidden=!down;
+ // Dying at 0 HP once there is an HP pool; with an unknown max, go by the Dying condition the character already has
+ const down=known?maxE>0&&hp<=0:S.hp<=0&&S.conds.some(n=>norm(n)==="dying");$("#hp").classList.toggle("down",down);$("#dying").hidden=!down;
  const sgn=v=>(v<0?"−":"+")+Math.abs(v);
- setHTML($("#hp"),`<div class="tl">${down?`<b class="dn">** DYING **</b>`:`<b>HP</b>`}<span><input type="number" data-hp="hp" value="${hp}" aria-label="Current HP"> / <b>${maxE}</b></span></div><div class="bar"><i style="width:${pc}%;background:${col}"></i></div><div class="btns">${[-5,-1,1,5].map(x=>`<button data-hd="${x}">${x>0?"+":""}${x}</button>`).join("")}</div>`+
+ setHTML($("#hp"),`<div class="tl">${down?`<b class="dn">** DYING **</b>`:`<b>HP</b>`}<span><input type="number" data-hp="hp" value="${hp}" aria-label="Current HP"> / <b>${known?maxE:"?"}</b></span></div><div class="bar"><i style="width:${pc}%;background:${col}"></i></div><div class="btns">${[-5,-1,1,5].map(x=>`<button data-hd="${x}">${x>0?"+":""}${x}</button>`).join("")}</div>`+
   `<div class="sub hpsum">${originOf()?`Max ${maxE} = ${esc(originOf().name)} ${hpP.org}`:(S.origin?"This origin isn’t in the library, so it adds no HP.":"No origin yet: pick one to set your HP.")+` Max ${maxE} =`}${hpP.bon?` ${sgn(hpP.bon)} bonuses`:""} <label>adjust <input type="number" data-hp="maxHp" value="${S.maxHp}" aria-label="Max HP adjustment"></label></div>`);
  const bMax=barrierMax(b),bCur=Math.max(0,Math.min(bMax,S.barrier)),bpc=bMax?bCur/bMax*100:0;
  setHTML($("#barrier"),`<div class="tl"><b>ENERGY BARRIER</b><span><input type="number" data-barrier value="${bCur}" min="0" max="${bMax}" aria-label="Current energy barrier"${bMax?"":" disabled"}> / <b>${bMax}</b></span></div><div class="bar barrier"><i style="width:${bpc}%"></i></div>`+
-  (bMax?`<div class="btns">${[-5,-1,1,5].map(x=>`<button data-bd="${x}">${x>0?"+":""}${x}</button>`).join("")}<button data-bd="full">Recharge</button></div>`:`<div class="sub">None yet. Gear, feats or spells that grant an Energy Barrier fill this.</div>`));
+  (bMax?`<div class="btns">${[-5,-1,1,5].map(x=>`<button data-bd="${x}">${x>0?"+":""}${x}</button>`).join("")}<button data-bd="full">Recharge</button></div>`:`<div class="sub">None yet. Armor, weapons, feats, conditions or your origin can grant one with an Energy Barrier bonus.</div>`));
  setHTML($("#cpick"),[["origin","Origin"],["career","Career"]].map(([k,l])=>pickCard(k,l)).join(""));
  $("#pimg").hidden=!S.portrait;$("#pnone").hidden=!!S.portrait;if(S.portrait&&$("#pimg").getAttribute("src")!==S.portrait)$("#pimg").src=S.portrait}
 
@@ -504,11 +537,13 @@ function mag(i,ammo,mx){const per=magPer(mx),n=Math.ceil(mx/per);let h="";
  for(let k=1;k<=n;k++){const top=Math.min(mx,k*per),st=ammo>=top?"live":ammo>(k-1)*per?"part":"spent";
   h+=`<button class="shot ${st}" data-shot="${i}|${k}" aria-label="Set to ${top} rounds">${BUL}</button>`}
  return `<div class="mag" role="group" aria-label="Magazine: ${ammo} of ${mx} rounds">${h}</div>`}
+// One piece per slot. Only drop a second piece when both are known library items: without the library
+// (opened offline as a file, or before it has loaded) every unknown name guesses "Torso", and must not be deleted.
+// Runs at the start of every calc, before anything counts armor, so the totals never include a duplicate.
+function dedupeArmor(){const seen={};S.arm=S.arm.filter(n=>{const sl=slotOf(n);if(seen[sl])return !(W(n)&&W(seen[sl]));seen[sl]=n;return true})}
 function renderArmory(){
  let wt=0;
- // One piece per slot. Only drop a second piece when both are known library items: without the library
- // (opened offline as a file, or before it has loaded) every unknown name guesses "Torso", and must not be deleted.
- const bySlot={};S.arm=S.arm.filter(n=>{const sl=slotOf(n);if(bySlot[sl])return !(W(n)&&W(bySlot[sl]));bySlot[sl]=n;return true});
+ const bySlot={};S.arm.forEach(n=>{const sl=slotOf(n);if(!bySlot[sl])bySlot[sl]=n});
  let armSum=0,chemSum=0;
  setHTML($("#aslots"),SLOTS.map(sl=>{const n=bySlot[sl],it=n?W(n)||{}:{},w=num(it.Weight),av=num(it.Armor),cv=num(it.Chemical);if(n){wt+=w;armSum+=av;chemSum+=cv}
   const list=(L.by.armor||[]).filter(a=>slotOf(a.name)===sl);
@@ -542,7 +577,7 @@ document.addEventListener("click",e=>{
   S.conds=S.conds.filter(n=>{if(!S.cdur[n])return true;if(--S.cdur[n]>0)return true;delete S.cdur[n];gone.push(n);return false});
   $("#rmsg").textContent=gone.length?`Round passed. ${gone.join(", ")} wore off.`:"Round passed.";update();return}
  const d=g.dataset,i=+d.i;
- if(d.hd){const m=hpMax(),prev=Math.min(m,S.hp);S.hp=Math.max(0,Math.min(m,prev+ +d.hd));hpChanged(prev);update()}
+ if(d.hd){const prev=S.hp;S.hp=capHp(Math.min(hpCap(),prev)+ +d.hd);hpChanged(prev);update()}
  else if(d.bd){const m=barrierMax();S.barrier=d.bd==="full"?m:Math.max(0,Math.min(m,Math.min(m,S.barrier)+ +d.bd));update()}
  else if(d.un){
   // Unequipping a tracked weapon puts its loaded rounds back in the pool
@@ -571,7 +606,8 @@ document.addEventListener("click",e=>{
 document.addEventListener("change",e=>{
  const t=e.target,d=t.dataset,id=t.id;
  if(d.c){S[d.c]=num(t.value);update()}
- else if(d.hp){const prev=S.hp;S[d.hp]=d.hp==="maxHp"?Math.round(num(t.value,0)):Math.max(0,Math.min(hpMax(),num(t.value)));if(d.hp==="hp")hpChanged(prev);update()}
+ // An emptied box means "no change", not 0 HP (which would also mark the character Dying)
+ else if(d.hp){if(t.value.trim()===""){update();return}const prev=S.hp;S[d.hp]=d.hp==="maxHp"?Math.round(num(t.value,0)):capHp(num(t.value));if(d.hp==="hp")hpChanged(prev);update()}
  else if(d.barrier!==undefined){S.barrier=Math.max(0,Math.min(barrierMax(),num(t.value)));update()}
  else if(d.cdur!==undefined){const v=Math.floor(num(t.value));if(v>0)S.cdur[d.cdur]=v;else delete S.cdur[d.cdur];update()}
  else if(d.ammotype!==undefined){S.ammo[d.ammotype]=Math.max(0,Math.floor(num(t.value)));update()}
@@ -607,10 +643,11 @@ fill();update();
   const res=setLib(o),now=JSON.stringify(o);LIBSRC="from the site";try{localStorage.setItem("lib-v1",now)}catch(e){}
   update();if(prev&&prev!=="{}"&&prev!==now)$("#lmsg").textContent=`Library updated from the site: ${res.n} entries.`}catch(e){}})();
 
-// Opening a share link (…#c=…) offers to add that character
-(async function(){const m=location.hash.match(/^#c=(.+)$/);if(!m)return;history.replaceState(null,"",location.pathname+location.search);
- let c;try{c=fix(await unpack(m[1]))}catch(e){alert("That share link is damaged or incomplete.");return}
- if(confirm(`Add the shared character "${c.name}" to this sheet?`)){addChar(c);$("#msg").textContent=`Added ${c.name} from a share link.`}})();
+// Opening a share link (…#c=…) offers to add that character, on load or when pasted into a sheet that's already open
+async function openShare(){const m=location.hash.match(/^#c=(.+)$/);if(!m)return;history.replaceState(null,"",location.pathname+location.search);
+ let c;try{c=fix(await unpack(m[1]))}catch(e){alert(m[1][0]==="z"&&!window.DecompressionStream?"This browser is too old to open share links. Update it, or ask for a backup file instead.":"That share link is damaged or incomplete.");return}
+ if(confirm(`Add the shared character "${c.name}" to this sheet?`)){addChar(c);$("#msg").textContent=`Added ${c.name} from a share link.`}}
+openShare();window.addEventListener("hashchange",openShare);
 
 // Installable and usable offline (see sw.js); only on the website, not when opened as a file
 if("serviceWorker" in navigator&&(location.protocol==="https:"||location.hostname==="localhost"))navigator.serviceWorker.register("sw.js").catch(()=>{});
