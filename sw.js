@@ -2,12 +2,14 @@
    The sheet's own files are fetched fresh whenever there's a connection, so a pushed fix reaches
    players straight away, and the last copy is kept for when there's no signal at the table.
    Fonts rarely change, so they come from the cache first. */
-const CACHE = "traveller-sheet-v1";
+const CACHE = "traveller-sheet-v2";
 const SHELL = ["./", "index.html", "css/sheet.css", "css/crt.css", "js/sheet.js", "js/crt.js",
   "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/favicon-32.png"];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // "reload" skips the browser's HTTP cache, so the saved copy is the version just published
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: "reload" }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (e) => {
@@ -32,8 +34,10 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // Network first, falling back to the saved copy when offline
-  e.respondWith(fetch(req).then((res) => {
+  // Network first, falling back to the saved copy when offline. "no-cache" makes the browser check with
+  // the server each time instead of reusing its own HTTP cache (GitHub Pages lets that last 10 minutes),
+  // so a new index.html never loads alongside an old sheet.js or the other way round.
+  e.respondWith(fetch(req, { cache: "no-cache" }).then((res) => {
     if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); }
     return res;
   }).catch(() => caches.match(req, { ignoreSearch: true })

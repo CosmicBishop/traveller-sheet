@@ -167,7 +167,13 @@ label{display:inline-flex;gap:6px;align-items:center}
 .opts input[type=range]{accent-color:var(--ink);flex:1;max-width:180px}
 /* Action pips: one square per action left this round */
 .aps{display:inline-flex;gap:6px;align-items:center}
-.ap{width:20px;height:20px;padding:0!important;border:2px solid var(--amber)!important;background:transparent!important;cursor:pointer;box-shadow:none}
-.ap.on{background:var(--amber)!important}
-.ap:hover{border-color:var(--hi)!important}
-.ap::before,.ap::after{content:none!important}
+/* Scoped to #aps so these outrank the Terminal look's button rules (hover fill, brackets, glow),
+   otherwise an empty pip looks full while hovered or after a tap on a phone */
+#aps .ap{width:20px;height:20px;padding:0!important;border:2px solid var(--amber)!important;background:transparent!important;box-shadow:none!important;text-shadow:none!important;cursor:pointer}
+#aps .ap.on{background:var(--amber)!important}
+#aps .ap:hover{border-color:var(--hi)!important;background:transparent!important}
+#aps .ap.on:hover{background:var(--amber)!important}
+#aps .ap::before,#aps .ap::after{content:none!important}
+/* Basic actions sit beside Next round and wrap under the pips on narrow screens */
+.apbar .tl{flex-wrap:wrap}
+.basics{margin:0;gap:6px;justify-content:flex-end}

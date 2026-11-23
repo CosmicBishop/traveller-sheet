@@ -58,7 +58,7 @@ const fix=o=>(o=obj(o),{name:String(o.name||"Unnamed"),level:Math.max(1,Math.flo
  cdur:Object.fromEntries(Object.entries(o.cdur&&typeof o.cdur==="object"?o.cdur:{}).map(([k,v])=>[k,Math.floor(+v)||0]).filter(([,v])=>v>0)),
  // How many times each action (by normalised name) has been used since the last rest
  used:numMap(o.used,v=>{const n=Math.floor(fin(v));return n>0?n:null}),
- ap:Math.max(0,Math.min(20,Math.floor(fin(o.ap)))),// actions spent this round
+ ap:Math.max(0,Math.min(99,Math.floor(fin(o.ap)))),// actions spent this round
  journal:Array.isArray(o.journal)?o.journal.filter(x=>x&&typeof x==="object").map(x=>({id:String(x.id||Date.now().toString(36)+Math.random().toString(36).slice(2,6)),
   title:String(x.title||"Untitled"),date:String(x.date||""),tags:String(x.tags||""),text:String(x.text||"")})):[]});
 // Storage: an index of characters ("chars-v1") plus one key per character ("char-<id>").
@@ -235,7 +235,7 @@ document.addEventListener("click",e=>{
 
 // Switch to a stored character without saving the current one first (callers save when needed)
 function loadChar(id){IDX.cur=id;lvBase=null;let o;try{o=MEM[id]||fix(LS.get("char-"+id)||DEF)}catch(e){o=fix(DEF)}S=o;
- fsel=null;$("#atk").textContent="";$("#roll").style.display="none";fill();update()}
+ fsel=null;["#atk","#amsg","#rmsg","#vmsg"].forEach(s=>$(s).textContent="");$("#roll").style.display="none";fill();update()}
 function addChar(o){if(IDX.list.some(c=>c.id===IDX.cur))save();const id=newId();IDX.list.push({id,name:o.name});MEM[id]=o;loadChar(id)}
 function renderChars(){const o=IDX.list.map(c=>`<option value="${c.id}"${c.id===IDX.cur?" selected":""}>${esc((c.id===IDX.cur?S.name:c.name)||"Unnamed")}</option>`).join("");
  setHTML($("#chars"),o);setHTML($("#chars2"),o+`<option value="__new">+ New character…</option>`);
@@ -314,8 +314,9 @@ function setLib(o){if(!o||typeof o!=="object"||Array.isArray(o))throw new Error(
  for(const[k,a]of Object.entries(o)){if(!Array.isArray(a))continue;
   by[k]=a.filter(i=>{const ok=i&&typeof i==="object"&&i.name!=null&&String(i.name).trim()!=="";if(!ok)skip++;return ok})
    .map(i=>typeof i.name==="string"?i:{...i,name:String(i.name)});
-  // Journal entries only show on the Journal tab, so they never shadow a feat or item with the same name
-  by[k].forEach(i=>{if(k!=="journal")all[norm(i.name)]=i;n++})}
+  // Journal entries only show on the Journal tab, and actions are only looked up through L.by.action,
+  // so neither shadows a feat or item with the same name (an action is often named after the feat granting it)
+  by[k].forEach(i=>{if(k!=="journal"&&k!=="action")all[norm(i.name)]=i;n++})}
  L={by,all};return{n,skip}}
 function showTab(){$$("[data-tab]").forEach(x=>x.hidden=x.dataset.tab!==tab);$$("[data-go]").forEach(b=>b.classList.toggle("cur",b.dataset.go===tab));
  if(tab==="journal")renderJournal()}
@@ -565,18 +566,29 @@ const actTags=it=>{const a=actNames(it);return a.length?`<div class="tags"><span
 const AP_BASE=3;
 const apMax=()=>CUR.apMax??AP_BASE;
 const apLeft=()=>Math.max(0,apMax()-S.ap);
-// An action's cost in actions: blank means 1, 0 means free
-const apCost=it=>it&&it.Action_Cost!=null&&it.Action_Cost!==""?Math.max(0,Math.floor(num(it.Action_Cost,1))):1;
+// An action's cost in actions: blank means 1, 0 (or the word "Free") means free
+const apCost=it=>{const v=it&&it.Action_Cost;if(v==null||v==="")return 1;if(/^\s*free\s*$/i.test(String(v)))return 0;return Math.max(0,Math.floor(num(v,1)))};
 const apLabel=n=>n===0?"Free":n+(n===1?" action":" actions");
-// Spend n actions, or explain why not (into msgEl) and return false
-function spendAP(n,what,msgEl){if(n>apLeft()){msgEl.textContent=`${what} takes ${apLabel(n)}, but you have ${apLeft()} left this round.`;return false}S.ap+=n;return true}
+// Spend n actions, or explain why not (into msgEl) and return false.
+// Spending clears the "New round: N actions back" note, which would no longer be true.
+function spendAP(n,what,msgEl){if(n>apLeft()){msgEl.textContent=`${what} takes ${apLabel(n)}, but you have ${apLeft()} left this round.`;return false}
+ S.ap+=n;if(n)$("#rmsg").textContent="";return true}
+// Lookups by name in plain objects: a name like "constructor" must not find a built-in property
+const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k)?o[k]:undefined;
 function renderAP(){const l=apLeft();
  const mx=apMax(),d=mx-AP_BASE;
  setHTML($("#aps"),Array.from({length:mx},(_,i)=>`<button class="ap${i<l?" on":""}" data-ap="${i+1}" aria-label="Set ${i+1} action${i?"s":""} left" title="Click to correct how many actions are left"></button>`).join(""));
- $("#apn").innerHTML=`${l} / ${mx} left`+(d?` <small class="${d>0?"up":"dn"}" title="From Actions bonuses">(${d>0?"+":""}${d})</small>`:"");$("#apn").className=l?"":"dn"}
+ $("#apn").innerHTML=`${l} / ${mx} left`+(d?` <small class="${d>0?"up":"dn"}" title="From Actions bonuses">(${d>0?"+":""}${d})</small>`:"");$("#apn").className=l?"":"dn";
+ $$("[data-basic]").forEach(b=>b.disabled=l<1)}
 document.addEventListener("click",e=>{const p=e.target.closest("[data-ap]");if(!p)return;const k=+p.dataset.ap;
  S.ap=apMax()-(apLeft()===k?k-1:k);update()});
-const usesOf=a=>{const max=Math.max(0,Math.floor(num(a.it&&a.it.Uses))),used=S.used[norm(a.name)]||0;return{max,left:Math.max(0,max-used)}};
+// Basic actions everyone has (Movement, Take Cover, Assist, Swap Weapon, Look): 1 action each, logged as USED
+const moveTotal=()=>num((originOf()||{}).Movement)+S.move+(bonuses().movement||0);
+document.addEventListener("click",e=>{const g=e.target.closest("[data-basic]");if(!g)return;const n=g.dataset.basic,msg=$("#rmsg");
+ if(!spendAP(1,n,msg))return;
+ addRoll({n,k:"act",x:n==="Movement"?`up to ${moveTotal()} hex`:""});
+ msg.textContent=`${n}: ${apLeft()} action${apLeft()===1?"":"s"} left.`;update()});
+const usesOf=a=>{const max=Math.max(0,Math.floor(num(a.it&&a.it.Uses))),used=own(S.used,norm(a.name))||0;return{max,left:Math.max(0,max-used)}};
 function renderActions(){
  const list=grantedActions();
  renderAP();
@@ -603,7 +615,7 @@ document.addEventListener("click",e=>{
  let t=null;
  if(it.Roll){t=CUR.fin[norm(it.Roll)];if(t==null){msg.textContent=`${a.name}: no skill called “${it.Roll}”. Check the action’s Roll field.`;return}}
  if(!spendAP(apCost(it),a.name,msg))return;
- if(max)S.used[k]=(S.used[k]||0)+1;
+ if(max)S.used[k]=(own(S.used,k)||0)+1;
  const tail=max?` (${left-1} of ${max} uses left)`:"";
  if(t!=null){const r=Math.floor(Math.random()*100)+1,ok=r<=t,dm=ok&&it.Damage?rollDice(it.Damage):null;
   addRoll({n:`${a.name} [${it.Roll}]`,d:r,v:t,ok,df:S.diff,k:"act",dmg:dm?dm.total:null,x:ok&&it.Damage?(dm?dmgText(it.Damage,dm):"DMG "+it.Damage):""});
@@ -631,7 +643,7 @@ function renderArmory(){
  setHTML($("#ammo"),ammoTypes().map(t=>`<div class="tank${used[t]?" on":""}"><div class="tl"><b>${esc(t)}</b><input type="number" min="0" data-ammotype="${esc(t)}" value="${num(S.ammo[t])}" aria-label="${esc(t)} spare rounds"></div><div class="btns">${[-10,-1,1,10].map(v=>`<button data-ad="${v}" data-at="${esc(t)}" aria-label="${v>0?"Add":"Remove"} ${Math.abs(v)} ${esc(t)}">${v>0?"+":""}${v}</button>`).join("")}</div>${used[t]?`<div class="sub">${used[t].map(esc).join(", ")}</div>`:""}</div>`).join(""));
  const gear=S.gear.map((g,i)=>{const it=g.link?W(g.link)||{}:g,uw=g.link?num(it.Weight):num(g.weight),q=num(g.qty,1);wt+=uw*q;
   return `<div class="tank"><div class="tl">${g.link?`<b>${esc(g.link)}</b>`:`<input type="text" data-gi="${i}" data-gf="name" value="${esc(g.name||"Item")}" aria-label="Item name">`}<span>× <input type="number" data-gi="${i}" data-gf="qty" value="${q}" aria-label="Quantity"> ${g.link?uw+" lb":`<input type="number" data-gi="${i}" data-gf="weight" value="${uw}" aria-label="Unit weight"> lb`} <button data-un="gear" data-i="${i}" aria-label="Remove item">×</button></span></div>${it.Notes?`<div class="sub">${esc(it.Notes)}</div>`:""}</div>`}).join("");
- const conds=S.conds.map((n,i)=>{const it=W(n)||{},r=S.cdur[n],dy=norm(n)==="dying";
+ const conds=S.conds.map((n,i)=>{const it=W(n)||{},r=own(S.cdur,n),dy=norm(n)==="dying";
   return `<div class="tank${dy?" down":""}"><div class="tl"><b class="dn">${dy?"**":"!!"} ${esc(n)}</b><span><label class="sub" style="margin:0" title="Rounds left. Leave blank to last until cleared.">RND <input type="number" min="0" data-cdur="${esc(n)}" value="${r||""}" placeholder="∞" aria-label="${esc(n)} rounds left"></label> <button data-un="cond" data-i="${i}" aria-label="Clear ${esc(n)}">×</button></span></div><div class="sub">${esc(it.Effect||it.Description||(dy?"At 0 HP. Healing above 0 clears this.":""))}</div>${bonTags(it)}</div>`}).join("");
  const mx=Math.max(10,num(CUR.attr.body)*10),over=wt>mx,pc=Math.min(100,wt/mx*100);
  $("#load").textContent=`${over?"!! Overburdened ":""}${Math.round(wt*10)/10} / ${mx} lb`;$("#load").className=over?"dn":"";
@@ -646,9 +658,11 @@ function renderArmory(){
 document.addEventListener("click",e=>{
  const g=e.target.closest("[data-hd],[data-bd],[data-un],[data-atk],[data-rl],[data-shot],[data-ad],#addcustom,#nextr");if(!g)return;
  if(g.id==="nextr"){const gone=[];
-  S.conds=S.conds.filter(n=>{if(!S.cdur[n])return true;if(--S.cdur[n]>0)return true;delete S.cdur[n];gone.push(n);return false});
+  S.conds=S.conds.filter(n=>{if(!own(S.cdur,n))return true;if(--S.cdur[n]>0)return true;delete S.cdur[n];gone.push(n);return false});
   S.ap=0;$("#amsg").textContent=$("#atk").textContent="";
-  $("#rmsg").textContent=`New round: ${apMax()} action${apMax()===1?"":"s"} back.`+(gone.length?` ${gone.join(", ")} wore off.`:"");update();return}
+  // Recalculate first: a condition that just wore off may have been lowering the number of actions
+  update();
+  $("#rmsg").textContent=`New round: ${apMax()} action${apMax()===1?"":"s"} back.`+(gone.length?` ${gone.join(", ")} wore off.`:"");return}
  const d=g.dataset,i=+d.i;
  if(d.hd){const prev=S.hp;S.hp=capHp(Math.min(hpCap(),prev)+ +d.hd);hpChanged(prev);update()}
  else if(d.bd){const m=barrierMax();S.barrier=d.bd==="full"?m:Math.max(0,Math.min(m,Math.min(m,S.barrier)+ +d.bd));update()}

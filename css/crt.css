@@ -154,7 +154,7 @@ button:hover:not(:disabled)::before,button:hover:not(:disabled)::after,.cur::bef
  .panel{padding:12px 10px 10px}}
 
 /* While a roll is running, every roll control dims and ignores clicks until the result has printed */
-&.roll-busy .nm,&.roll-busy [data-atk],&.roll-busy [data-cast],&.roll-busy #dicef button{opacity:.4;cursor:wait}
+&.roll-busy .nm,&.roll-busy [data-atk],&.roll-busy [data-cast],&.roll-busy [data-use],&.roll-busy #dicef button{opacity:.4;cursor:wait}
 &.roll-busy .nm:hover{background:none}
 
 /* Rolling dice tray (Settings: Rolling dice animation) */
