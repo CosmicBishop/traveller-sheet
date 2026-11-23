@@ -41,54 +41,54 @@
 # HP:                 <b id="m-hp">…</b>
 #----------------------------------------------------------------
 <span class="k">[traveller@terminal ~]$</span> ./charsheet --interactive <span class="cursor"></span></pre>
- <div class="tabs panel"><button data-go="char" class="cur">Character</button><button data-go="action">Actions</button><button data-go="skills">Skills</button><button data-go="feats">Feats</button><button data-go="vis">Vis</button><button data-go="armory">Armory</button><button data-go="journal">Journal<span id="jbadge" class="jnew"></span></button><button data-go="data">Settings</button><b id="dying" class="dn" role="status" hidden>** DYING **</b><span id="savewarn" class="dn" role="alert" style="font-size:.85rem" hidden>!! Not saving: browser storage is full or blocked. Download your character.</span><label class="diff">Difficulty <select id="diff" aria-label="Difficulty modifier"><option value="30">Trivial (+30)</option><option value="20">Effortless (+20)</option><option value="10">Simple (+10)</option><option value="0">Normal (0)</option><option value="-10">Difficult (-10)</option><option value="-20">Challenging (-20)</option><option value="-30">Complicated (-30)</option></select></label><form id="dicef" class="dicebox"><input type="text" id="dice" placeholder="3d6+2" aria-label="Dice to roll" autocomplete="off" spellcheck="false"><button>Roll</button><span id="dicer" role="status" aria-live="polite"></span></form></div>
+ <div class="tabs panel"><button data-go="char" class="cur">Character</button><button data-go="action">Actions</button><button data-go="feats">Feats</button><button data-go="vis">Vis</button><button data-go="armory">Armory</button><button data-go="journal">Journal<span id="jbadge" class="jnew"></span></button><button data-go="data">Settings</button><b id="dying" class="dn" role="status" hidden>** DYING **</b><span id="savewarn" class="dn" role="alert" style="font-size:.85rem" hidden>!! Not saving: browser storage is full or blocked. Download your character.</span><label class="diff">Difficulty <select id="diff" aria-label="Difficulty modifier"><option value="30">Trivial (+30)</option><option value="20">Effortless (+20)</option><option value="10">Simple (+10)</option><option value="0">Normal (0)</option><option value="-10">Difficult (-10)</option><option value="-20">Challenging (-20)</option><option value="-30">Complicated (-30)</option></select></label><form id="dicef" class="dicebox"><input type="text" id="dice" placeholder="3d6+2" aria-label="Dice to roll" autocomplete="off" spellcheck="false"><button>Roll</button><span id="dicer" role="status" aria-live="polite"></span></form></div>
  <div class="panel" data-tab="char" style="margin-top:14px">
   <div class="head" style="align-items:center"><div class="title">&gt; <input data-name aria-label="Character name" maxlength="24"></div><select id="chars2" aria-label="Switch character"></select></div>
   <div class="cols">
    <div class="side">
     <div class="pill lv"><label>LVL <input type="number" min="1" data-lvl></label></div>
     <div class="tank pts" id="cpts"></div>
-    <div class="stats" id="stats"></div>
    </div>
+   <!-- Skills live on the Character tab: the toolbar and roll log here, the skill groups below the panel -->
    <div class="mid">
-    <div class="stats" id="cpills"></div>
-    <div class="tank" id="hp"></div>
-    <div class="tank" id="barrier"></div>
-    <div class="grid" id="cpick"></div>
-    <div class="led">
-     <label>Age / pronouns <input type="text" data-m="age"></label>
-     <label>Faction <input type="text" data-m="faction"></label>
+    <div class="pills">
+     <div class="pill"><label>MAX CAP</label><b id="cap"></b></div>
+     <button id="clr" title="Reset all temporary modifiers to 0">↺ Clear temp</button>
+     <input type="search" id="sks" placeholder="Search skills…" aria-label="Search skills" autocomplete="off" spellcheck="false">
+     <span id="sknone" class="sub" style="margin:0" hidden>No skills match.</span>
+     <div id="roll" role="status" aria-live="polite"></div>
     </div>
-    <textarea data-m="bio" rows="4" placeholder="Appearance, scars, backstory…" aria-label="Appearance and notes"></textarea>
-   </div>
-   <div class="port">
-    <div id="pnone" class="noimg">[ no signal ]</div><img id="pimg" alt="Character portrait" hidden>
-    <label class="btn">Upload portrait <input type="file" id="pfile" accept="image/*" hidden></label>
+    <div class="sub" style="margin:0">// Base 4 = 100% (+8.5% / −10%) · click a skill to roll d100 under</div>
+    <div class="rlog" data-rlog></div>
+    <div class="stats" id="stats"></div>
    </div>
   </div>
  </div>
- <section class="panel" data-tab="skills" hidden>
-  <div class="pills">
-   <div class="pill"><label>SKILL PTS</label><b id="pool"></b></div>
-   <div class="pill"><label>MAX CAP</label><b id="cap"></b></div>
-   <button id="clr" title="Reset all temporary modifiers to 0">↺ Clear temp</button>
-   <input type="search" id="sks" placeholder="Search skills…" aria-label="Search skills" autocomplete="off" spellcheck="false">
-   <span id="sknone" class="sub" style="margin:0" hidden>No skills match.</span>
-   <div id="roll" role="status" aria-live="polite"></div>
-  </div>
-  <div class="sub" style="margin-bottom:0">// Base 4 = 100% (+8.5% / −10%) · click a skill to roll d100 under</div>
-  <div class="rlog" data-rlog></div>
- </section>
- <div class="grid" id="grid" data-tab="skills" hidden></div>
- <details class="panel" open data-tab="skills" hidden>
+ <div class="grid" id="grid" data-tab="char"></div>
+ <details class="panel" open data-tab="char">
   <summary>FEATURES &amp; BONUSES</summary>
   <div class="sub">One per line: <i>Name: Body +1, Heavy Firearms +5</i>. Attributes (name or BDY, DEX…) and skills both work. Boosted skills get a ✦.</div>
   <textarea id="feats" rows="4" spellcheck="false" aria-describedby="fwarn"></textarea>
   <div id="fwarn" class="sub dn fwarn" role="status" hidden></div>
  </details>
  <section class="panel" data-tab="journal" hidden>
-  <div class="jtools"><span id="jk" class="btns" style="margin:0" role="group" aria-label="Show journal entries"></span><input type="search" id="jq" placeholder="Search journal…" aria-label="Search journal" autocomplete="off"><button id="jadd">+ New note</button></div>
-  <div class="two"><div id="jlist" class="flist"></div><div id="jinfo"></div></div>
+  <div class="jtools"><span id="jk" class="btns" style="margin:0" role="group" aria-label="Show journal entries"></span><input type="search" id="jq" placeholder="Search journal…" aria-label="Search journal" autocomplete="off"><button id="jadd">+ New note</button><button id="jchar" class="jcharbtn" aria-pressed="false">Bio</button></div>
+  <div class="two" id="jentries"><div id="jlist" class="flist"></div><div id="jinfo"></div></div>
+  <!-- The character's story: who they are, where they come from, what they look like -->
+  <div class="jcharview" id="jcharview" hidden>
+   <div class="jcmain">
+    <div class="grid" id="cpick"></div>
+    <div class="led">
+     <label>Age / pronouns <input type="text" data-m="age"></label>
+     <label>Faction <input type="text" data-m="faction"></label>
+    </div>
+    <textarea data-m="bio" rows="6" placeholder="Appearance, scars, backstory…" aria-label="Appearance and notes"></textarea>
+   </div>
+   <div class="port">
+    <div id="pnone" class="noimg">[ no signal ]</div><img id="pimg" alt="Character portrait" hidden>
+    <label class="btn">Upload portrait <input type="file" id="pfile" accept="image/*" hidden></label>
+   </div>
+  </div>
  </section>
  <section class="panel" data-tab="feats" hidden>
   <div class="btns"><b>Browse</b><span id="fk" class="btns" style="margin:0"></span><label class="btn"><input type="checkbox" id="fall"> Show all</label><div class="pill" style="margin-left:auto"><label>FEAT PTS</label><b id="fpts"></b></div></div>
@@ -112,23 +112,42 @@
    <div>
     <div class="btns" style="margin-top:6px"><b>Weapons owned</b><select id="addwpn" aria-label="Add a weapon this character carries"></select></div>
     <div class="grid" id="owned"></div>
+    <div class="btns" style="margin-top:14px"><b>Spare ammo</b><span class="sub" style="margin:0">Reloading draws from these. Weapons share a pool when they use the same ammo type.</span></div>
+    <div class="ammo" id="ammo"></div>
     <div class="btns" style="margin-top:14px"><b>Items</b><select id="additem" aria-label="Add item"></select><button id="addcustom">+ Custom item</button></div>
     <div class="grid" id="gear"></div>
-    <div class="sub" style="margin-top:14px">What each hand holds, spare ammo and conditions are on the Actions tab.</div>
+    <div class="sub" style="margin-top:14px">What each hand holds and conditions are on the Actions tab.</div>
     <textarea data-m="log" rows="3" placeholder="Weapon jams, crucible faults, active effects…" aria-label="Field log"></textarea>
    </div>
   </div>
  </section>
  <section class="panel" data-tab="action" hidden>
-  <div class="tank apbar"><div class="tl"><span class="btns" style="margin:0"><b>Actions this round</b><span id="aps" class="aps" role="group" aria-label="Actions left this round"></span><span id="apn"></span></span><span class="btns basics" role="group" aria-label="Basic actions"><button data-basic="Movement" title="Move up to your Movement (1 action)">Movement</button><button data-basic="Take Cover" title="1 action">Take Cover</button><button data-basic="Assist" title="1 action">Assist</button><button data-basic="Swap Weapon" title="1 action">Swap Weapon</button><button data-basic="Look" title="1 action">Look</button><button id="nextr" title="Get your actions back and count down timed conditions">&gt;&gt; Next round</button></span></div><div id="rmsg" class="sub" style="margin:4px 0 0" role="status" aria-live="polite"></div></div>
-  <div class="tank" style="margin-top:14px"><div class="tl"><b>Health</b><span id="hpsum" class="sub" style="margin:0"></span></div><form id="dmgf" class="btns" style="margin-top:6px"><label>Take damage <input type="number" id="dmgn" min="0" placeholder="0" aria-label="Damage taken"></label><select id="dmgk" aria-label="Damage type"><option value="phys">Physical</option><option value="spell">Spell</option></select><button>Apply</button><button type="button" id="rest" title="Refill HP, clear every condition and refill each action's uses per rest">Rest</button></form><div id="hmsg" class="sub" style="margin:4px 0 0" role="status" aria-live="polite"></div></div>
+  <!-- Actions this round: pips and buttons on the left, the roll log as a tall box on the right -->
+  <div class="tank apbar">
+   <div class="apleft">
+    <span class="btns" style="margin:0"><b>Actions this round</b><span id="aps" class="aps" role="group" aria-label="Actions left this round"></span><span id="apn"></span></span>
+    <span class="btns basics" role="group" aria-label="Basic actions"><button data-basic="Movement" title="Move up to your Movement (1 action)">Movement</button><button data-basic="Take Cover" title="1 action">Take Cover</button><button data-basic="Assist" title="1 action">Assist</button><button data-basic="Swap Weapon" title="1 action">Swap Weapon</button><button data-basic="Look" title="1 action">Look</button></span>
+    <span class="btns roundctl" role="group" aria-label="Round and rest"><button id="nextr" title="Get your actions back and count down timed conditions">&gt;&gt; Next round</button><button type="button" id="rest" title="Refill HP, clear every condition and refill each action's uses per rest">Rest</button></span>
+    <div id="cchips" class="tags cchips" aria-label="Active conditions"></div>
+    <div id="rmsg" class="sub" style="margin:0" role="status" aria-live="polite"></div>
+   </div>
+   <div class="rlog rbox" data-rlog></div>
+  </div>
+  <!-- Combat stats; the HP box also takes damage -->
+  <div class="combat">
+   <div class="cstats">
+    <div class="stats" id="cpills"></div>
+    <div class="tank hpbox"><div id="hp"></div>
+     <form id="dmgf" class="btns dmgrow"><b>Take damage</b><input type="number" id="dmgn" min="0" placeholder="0" aria-label="Damage taken"><select id="dmgk" aria-label="Damage type"><option value="phys">Mechanical</option><option value="spell">Chemical</option></select><button>Apply</button></form>
+     <div id="hmsg" class="sub" style="margin:6px 0 0" role="status" aria-live="polite"></div>
+    </div>
+    <div class="tank" id="barrier"></div>
+   </div>
+  </div>
   <div class="btns" style="margin-top:14px"><b>In hand</b><span class="sub" style="margin:0">Readying a weapon takes 1 action; putting one away is free.</span><span id="atk" class="sub" role="status" aria-live="polite"></span></div>
   <div class="grid" id="wpns"></div>
-  <div class="btns" style="margin-top:14px"><b>Spare ammo</b><span class="sub" style="margin:0">Reloading draws from these. Weapons share a pool when they use the same ammo type.</span></div>
-  <div class="ammo" id="ammo"></div>
   <div class="btns" style="margin-top:14px"><b>Actions</b><span id="amsg" class="sub" style="margin:0" role="status" aria-live="polite"></span></div>
   <div class="grid" id="acts"></div>
-  <div class="rlog" data-rlog></div>
   <div class="btns" style="margin-top:14px"><b>Conditions</b><select id="addcond" aria-label="Apply condition"></select><span class="sub" style="margin:0">Next round counts these down.</span></div>
   <div class="grid" id="conds"></div>
  </section>

@@ -87,7 +87,7 @@ label{display:inline-flex;gap:6px;align-items:center}
 .flinks{display:grid;gap:4px;margin-top:8px}
 .fl{display:flex;justify-content:space-between;gap:8px;text-align:left;letter-spacing:0;font-size:.9rem}
 .fl small{color:var(--dim)}
-.cols{display:grid;grid-template-columns:270px minmax(0,1fr) 210px;gap:18px;margin-top:12px;align-items:start}
+.cols{display:grid;grid-template-columns:270px minmax(0,1fr);gap:18px;margin-top:12px;align-items:start}
 .side{display:grid;gap:8px;align-self:stretch;grid-template-rows:auto auto 1fr;font-size:15px}
 .side .pts{font-size:16px;display:grid;gap:4px}
 .pts b{color:var(--hi)}
@@ -97,13 +97,13 @@ label{display:inline-flex;gap:6px;align-items:center}
 .side .pill b{font-size:1.4em;white-space:nowrap}
 .side .pill label{display:grid;grid-template-columns:3em auto auto;gap:6px}
 .side .pill.lv{justify-content:flex-end}
-.mid #hp{margin:0}
-.mid #cpills .pill{flex:1}
-.mid #cpills .pill label{flex-wrap:wrap;justify-content:center}
+.cstats #hp{margin:0}
+.cstats #cpills .pill{flex:1}
+.cstats #cpills .pill label{flex-wrap:wrap;justify-content:center}
 .ico{width:1.4em;height:1.4em;color:var(--amber);flex:none}
 .mid{display:grid;gap:12px}.mid .led,.mid textarea{margin:0}
 #cpick{grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin:0}
-@media(max-width:900px){.cols{grid-template-columns:270px minmax(0,1fr)}.cols .port{grid-column:1/-1;max-width:260px;width:100%;margin:0 auto}}
+@media(max-width:900px){.cols{grid-template-columns:240px minmax(0,1fr)}}
 @media(max-width:600px){.cols{grid-template-columns:1fr}}
 .arm2{display:grid;grid-template-columns:280px minmax(0,1fr);gap:18px;align-items:start;margin-top:10px}
 @media(max-width:760px){.arm2{grid-template-columns:1fr}}
@@ -175,8 +175,40 @@ label{display:inline-flex;gap:6px;align-items:center}
 #aps .ap.on:hover{background:var(--amber)!important}
 #aps .ap::before,#aps .ap::after{content:none!important}
 /* Basic actions sit beside Next round and wrap under the pips on narrow screens */
-.apbar .tl{flex-wrap:wrap}
-.basics{margin:0;gap:6px;justify-content:flex-end}
+.basics{margin:0;gap:6px}
 /* Owned weapons that are in a hand are outlined */
 #owned .on,#wpns .on{border-color:var(--amber)}
 [data-hand]{max-width:60%}
+/* Journal › Character: the button sits at the far right of the toolbar; the view puts the portrait on the right */
+.jcharbtn{margin-left:auto}
+.jcharview{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:18px;margin-top:10px;align-items:start}
+.jcmain{display:grid;gap:12px}.jcmain .led,.jcmain textarea{margin:0}
+@media(max-width:640px){.jcharview{grid-template-columns:1fr}.jcharview .port{max-width:260px;width:100%;margin:0 auto}}
+/* A button that reads like a link, for "Journal › Character" on the Character tab */
+.linkish{border:0!important;background:none!important;padding:0!important;color:var(--amber);text-decoration:underline;cursor:pointer;font:inherit;letter-spacing:0}
+.linkish::before,.linkish::after{content:none!important}
+/* Actions tab combat block: stats, HP and barrier on the left; taking damage and resting on the right */
+.combat{margin-top:14px}
+.cstats{display:grid;gap:12px}
+/* Character tab: the skill toolbar and roll log fill the right-hand column */
+.mid .rlog{margin:0}
+/* Character tab: the six attributes sit in a row under the roll log */
+.mid #stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.mid #stats .pill{min-width:0;padding:6px 8px}
+.mid #stats .pill b{font-size:1.25em}
+@media(max-width:1100px){.mid #stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:420px){.mid #stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* HP box: the bar, then a Take damage row under a divider */
+.hpbox #hp{margin:0}
+.dmgrow{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line);align-items:center}
+.dmgrow #dmgn{width:5em}
+/* Actions bar: Next round and Rest sit apart at the far right */
+.roundctl{margin:0;gap:8px;padding-top:8px;border-top:1px dashed var(--line)}
+/* Actions box: buttons on the left, the roll log as a tall rectangle on the right */
+.apbar{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}
+.apleft{display:grid;gap:10px;align-content:start}
+.apbar .rbox{margin:0;height:230px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+@media(max-width:760px){.apbar{grid-template-columns:1fr}.apbar .rbox{height:180px}}
+/* Active conditions as chips in the actions box; nothing shows when there are none */
+.cchips{margin:0}.cchips:empty{display:none}
+.cchips span{border-color:var(--amber)}.cchips span.dn{border-color:var(--bad)}

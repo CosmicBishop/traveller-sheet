@@ -170,8 +170,17 @@ function calc(dry){
   r.querySelector(".eff").innerHTML=base+(t||D?` <small class="${t+D>0?"up":t+D<0?"dn":""}">→${fin}</small>`:"");
   r.querySelector("[data-pts]").classList.toggle("dn",p>cap);
   r.querySelector("[data-temp]").className=t>0?"up":t<0?"dn":""});
- const pe=$("#pool");pe.textContent=`${spent} / ${pool}`;pe.className=spent>pool?"dn":spent===pool?"up":"";
+ // (Skill points are shown in the points box on the Character tab, drawn by renderPts)
  if(dry)return;
+ // Keep stored values inside what the sheet shows. When a maximum drops (an item put away, a bonus removed),
+ // HP and the barrier come down with it, so damage comes off the number on screen and re-readying an item
+ // can't refill the barrier for free. Only once the library is loaded: without it the maximums aren't known.
+ if(Object.keys(L.all).length){
+  if(hpKnown())S.hp=Math.max(0,Math.min(S.hp,hpMax(b)));
+  S.barrier=Math.max(0,Math.min(S.barrier,barrierMax(b)));
+  // A two-handed weapon in the main hand leaves nothing in the off hand (an imported save could say otherwise)
+  const m=S.wpn.find(w=>w.hand==="main");
+  S.wpn.forEach(w=>{if(w.hand==="off"&&((m&&isTwoH(m))||isTwoH(w)))delete w.hand})}
  renderPts(spent,pool);
  $("#cap").textContent=cap;const libN=Object.values(L.by).reduce((a,x)=>a+x.length,0);$("#lcount").textContent=libN?libN+" entries"+(LIBSRC?" · "+LIBSRC:""):"empty";renderFeats();renderVis();renderDossier();renderArmory();renderActions();renderLog();renderJournal();
  save();renderChars();renderFeatWarn()}
@@ -243,7 +252,7 @@ document.addEventListener("click",e=>{
 
 // Switch to a stored character without saving the current one first (callers save when needed)
 function loadChar(id){IDX.cur=id;lvBase=null;let o;try{o=MEM[id]||fix(LS.get("char-"+id)||DEF)}catch(e){o=fix(DEF)}S=o;
- fsel=null;["#atk","#amsg","#rmsg","#vmsg"].forEach(s=>$(s).textContent="");$("#roll").style.display="none";fill();update()}
+ fsel=null;["#atk","#amsg","#rmsg","#vmsg","#hmsg"].forEach(s=>$(s).textContent="");$("#roll").style.display="none";fill();update()}
 function addChar(o){if(IDX.list.some(c=>c.id===IDX.cur))save();const id=newId();IDX.list.push({id,name:o.name});MEM[id]=o;loadChar(id)}
 function renderChars(){const o=IDX.list.map(c=>`<option value="${c.id}"${c.id===IDX.cur?" selected":""}>${esc((c.id===IDX.cur?S.name:c.name)||"Unnamed")}</option>`).join("");
  setHTML($("#chars"),o);setHTML($("#chars2"),o+`<option value="__new">+ New character…</option>`);
@@ -331,7 +340,7 @@ function showTab(){$$("[data-tab]").forEach(x=>x.hidden=x.dataset.tab!==tab);$$(
 
 /* ---------- journal: the GM's entries from the library (read-only) plus this character's own notes ---------- */
 const JCATS=[["all","All"],["lore","Lore"],["quest","Quests"],["npc","NPCs"],["location","Locations"],["handout","Handouts"],["mine","My notes"]];
-let jk="all",jsel=null;
+let jk="all",jsel=null,jview="list";// jview: "list" = journal entries, "char" = the Character view (origin, career, portrait…)
 // Which GM entries this browser has opened, so new ones are marked NEW (and counted on the tab)
 const jseen=new Set(LS.get("jseen-v1")||[]);
 const catOf=e=>{const c=norm(e.Category||"lore").replace(/s$/,"");return ["lore","quest","npc","location","handout"].includes(c)?c:"lore"};
@@ -355,7 +364,11 @@ function renderJournal(){
  if(x&&x.gm&&tab==="journal"&&!jseen.has(x.key)){jseen.add(x.key);LS.set("jseen-v1",[...jseen])}
  const unseen=all.filter(x=>x.gm&&!jseen.has(x.key)).length;
  $("#jbadge").textContent=unseen?` (${unseen})`:"";
- $("#jk").innerHTML=cats.map(([k,l])=>`<button data-jk="${k}"${k===jk?' class="cur"':""}>${l}</button>`).join("");
+ const ch=jview==="char";
+ $("#jk").innerHTML=cats.map(([k,l])=>`<button data-jk="${k}"${k===jk&&!ch?' class="cur"':""}>${l}</button>`).join("");
+ // The Character view replaces the entry list; search and New note only apply to entries
+ $("#jentries").hidden=ch;$("#jcharview").hidden=!ch;$("#jq").hidden=$("#jadd").hidden=ch;
+ $("#jchar").classList.toggle("cur",ch);$("#jchar").setAttribute("aria-pressed",ch);
  const fl=$("#jlist"),keep=fl.scrollTop;
  fl.innerHTML=shown.length?shown.map(x=>{
   const sub=x.gm?[x.catLabel,hasVal(x.session)?"S"+x.session:"",x.status||""].filter(Boolean).join(" · "):["My note",x.date||""].filter(Boolean).join(" · ");
@@ -366,9 +379,12 @@ function renderJournal(){
   :x.gm?`<div class="tank"><div class="tl"><b>${esc(x.title)}</b><small class="sub" style="margin:0">${esc(x.catLabel.toUpperCase())}</small></div><div class="tags">${[hasVal(x.session)?"Session "+x.session:"",x.status?"Status: "+x.status:"","From your GM"].filter(Boolean).map(t=>`<span>${esc(t)}</span>`).join("")}</div><div class="sub">${esc(x.text||"No text.")}</div></div>`
   :`<div class="tank jedit"><label>Title <input type="text" data-jn="title" value="${esc(x.n.title)}" maxlength="80"></label><label>Date <input type="date" data-jn="date" value="${esc(x.n.date)}"></label><label>Tags <input type="text" data-jn="tags" value="${esc(x.n.tags)}" placeholder="npc, fort, clue"></label><textarea data-jn="text" rows="12" placeholder="What happened, who you met, what you owe…" aria-label="Note text">${esc(x.n.text)}</textarea><div class="btns"><button data-jdel>Delete note</button><span class="sub" style="margin:0">Saved with this character.</span></div></div>`)}
 document.addEventListener("click",e=>{const k=e.target.closest("[data-jk]"),s=e.target.closest("[data-jsel]");
- if(k){jk=k.dataset.jk;renderJournal()}
+ if(k){jk=k.dataset.jk;jview="list";renderJournal()}
  else if(s){jsel=s.dataset.jsel;renderJournal()}
- else if(e.target.closest("#jadd")){const n={id:newId(),title:"New note",date:localDate(),tags:"",text:""};
+ else if(e.target.closest("#jchar")){jview="char";renderJournal()}
+ // The note on the Character tab links straight to Journal › Character
+ else if(e.target.closest("[data-go-jchar]")){jview="char";tab="journal";showTab();renderJournal();window.scrollTo(0,0)}
+ else if(e.target.closest("#jadd")){jview="list";const n={id:newId(),title:"New note",date:localDate(),tags:"",text:""};
   S.journal.push(n);if(jk!=="all")jk="mine";$("#jq").value="";jsel="n:"+n.id;save();renderJournal();const t=$('#jinfo [data-jn="title"]');if(t){t.focus();t.select()}}
  else if(e.target.closest("[data-jdel]")){const n=S.journal.find(x=>"n:"+x.id===jsel);if(!n||!confirm(`Delete the note “${n.title}”? This can’t be undone.`))return;
   S.journal=S.journal.filter(x=>x!==n);jsel=null;save();renderJournal()}});
@@ -505,13 +521,14 @@ function renderDossier(){
  const fromOrigin=k=>k==="move"&&originOf()&&num(originOf().Movement)?`${esc(originOf().name)} ${num(originOf().Movement)} + `:"";
  setHTML($("#cpills"),P.map(([l,ab,k,t,u])=>`<div class="pill" title="${l}: ${fromOrigin(k)}base ${S[k]}, total ${t}${u}"><b>${t}${u}</b><label>${ab} <input type="number" data-c="${k}" value="${S[k]}" aria-label="${l} base"></label></div>`).join(""));
  // Dying at 0 HP once there is an HP pool; with an unknown max, go by the Dying condition the character already has
- const down=known?maxE>0&&hp<=0:S.hp<=0&&S.conds.some(n=>norm(n)==="dying");$("#hp").classList.toggle("down",down);$("#dying").hidden=!down;
+ const down=known?maxE>0&&hp<=0:S.hp<=0&&S.conds.some(n=>norm(n)==="dying");$("#hp").closest(".tank").classList.toggle("down",down);$("#dying").hidden=!down;
  const sgn=v=>(v<0?"−":"+")+Math.abs(v);
  setHTML($("#hp"),`<div class="tl">${down?`<b class="dn">** DYING **</b>`:`<b>HP</b>`}<span><input type="number" data-hp="hp" value="${hp}" aria-label="Current HP"> / <b>${known?maxE:"?"}</b></span></div><div class="bar"><i style="width:${pc}%;background:${col}"></i></div><div class="btns">${[-5,-1,1,5].map(x=>`<button data-hd="${x}">${x>0?"+":""}${x}</button>`).join("")}</div>`+
-  `<div class="sub hpsum">${originOf()?`Max ${maxE} = ${esc(originOf().name)} ${hpP.org}`:(S.origin?"This origin isn’t in the library, so it adds no HP.":"No origin yet: pick one to set your HP.")+` Max ${maxE} =`}${hpP.bon?` ${sgn(hpP.bon)} bonuses`:""} <label>adjust <input type="number" data-hp="maxHp" value="${S.maxHp}" aria-label="Max HP adjustment"></label></div>`);
+  `<div class="sub hpsum">${originOf()?`Max ${maxE} = ${esc(originOf().name)} ${hpP.org}`:(S.origin?"This origin isn’t in the library, so it adds no HP.":"No origin yet: pick one in <button class='linkish' data-go-jchar>Journal › Bio</button> to set your HP.")+` Max ${maxE} =`}${hpP.bon?` ${sgn(hpP.bon)} bonuses`:""} <label>adjust <input type="number" data-hp="maxHp" value="${S.maxHp}" aria-label="Max HP adjustment"></label></div>`);
  const bMax=barrierMax(b),bCur=Math.max(0,Math.min(bMax,S.barrier)),bpc=bMax?bCur/bMax*100:0;
+ $("#barrier").hidden=!bMax;// no barrier until a bonus grants one
  setHTML($("#barrier"),`<div class="tl"><b>ENERGY BARRIER</b><span><input type="number" data-barrier value="${bCur}" min="0" max="${bMax}" aria-label="Current energy barrier"${bMax?"":" disabled"}> / <b>${bMax}</b></span></div><div class="bar barrier"><i style="width:${bpc}%"></i></div>`+
-  (bMax?`<div class="btns">${[-5,-1,1,5].map(x=>`<button data-bd="${x}">${x>0?"+":""}${x}</button>`).join("")}<button data-bd="full">Recharge</button></div>`:`<div class="sub">None yet. Armor, weapons, feats, conditions or your origin can grant one with an Energy Barrier bonus.</div>`));
+  (bMax?`<div class="btns">${[-5,-1,1,5].map(x=>`<button data-bd="${x}">${x>0?"+":""}${x}</button>`).join("")}<button data-bd="full">Recharge</button></div>`:""));
  setHTML($("#cpick"),[["origin","Origin"],["career","Career"]].map(([k,l])=>pickCard(k,l)).join(""));
  $("#pimg").hidden=!S.portrait;$("#pnone").hidden=!!S.portrait;if(S.portrait&&$("#pimg").getAttribute("src")!==S.portrait)$("#pimg").src=S.portrait}
 
@@ -613,17 +630,14 @@ function renderActions(){
    (max?`<span class="sub" style="margin:0;white-space:nowrap"><b class="${left?"":"dn"}">${left}</b> / ${max} uses${left<max?` <button data-ureset="${esc(a.name)}" aria-label="Refill ${esc(a.name)}" title="Refill this action's uses">↻</button>`:""}</span>`:"")+
    `</div><div class="sub" style="margin:6px 0 0"><small>From ${a.from.map(esc).join(", ")}</small></div></div>`}).join("")||
   `<div class="sub">No actions yet. Feats and features that grant actions add them here once you have them.</div>`);
- renderHealth()}
+ }
 
 // ---------- Health: taking damage and resting ----------
-function renderHealth(){const b=bonuses(),a=armorTotals(b),bm=barrierMax(b),max=hpKnown()?hpMax(b):null;
- $("#hpsum").innerHTML=`HP <b class="${S.hp<=0?"dn":""}">${S.hp}</b>${max!=null?` / ${max}`:""}`+(bm?` · Barrier <b>${Math.min(S.barrier,bm)}</b> / ${bm}`:"")+
-  ` · Armor ${a.mech} mech / ${a.chem} chem`}
 // Damage goes through the matching armor first (Mechanical for physical, Chemical for spells),
 // then the Energy Barrier soaks what it can, and the rest comes off HP
 $("#dmgf").addEventListener("submit",e=>{e.preventDefault();const n=Math.floor(num($("#dmgn").value)),msg=$("#hmsg");
  if(!(n>0)){msg.textContent="Enter how much damage you took.";return}
- const spell=$("#dmgk").value==="spell",kind=spell?"Spell":"Physical",b=bonuses(),arm=Math.max(0,spell?armorTotals(b).chem:armorTotals(b).mech);
+ const spell=$("#dmgk").value==="spell",kind=spell?"Chemical":"Mechanical",b=bonuses(),arm=Math.max(0,spell?armorTotals(b).chem:armorTotals(b).mech);
  const afterArm=Math.max(0,n-arm),bar=Math.min(afterArm,Math.max(0,Math.min(S.barrier,barrierMax(b)))),hit=afterArm-bar,prev=S.hp;
  S.barrier=Math.max(0,S.barrier-bar);S.hp=Math.max(0,S.hp-hit);hpChanged(prev);
  // HP can't drop below 0, so report what was actually lost and how much more the hit carried
@@ -635,8 +649,11 @@ $("#dmgf").addEventListener("submit",e=>{e.preventDefault();const n=Math.floor(n
 document.addEventListener("click",e=>{if(e.target.id!=="rest")return;const msg=$("#hmsg");
  if(!confirm("Rest? This fills HP, clears every condition and refills each action’s uses."))return;
  const prev=S.hp,cleared=S.conds.slice(),known=hpKnown();
- if(known)S.hp=hpMax();S.conds=[];S.cdur={};S.used={};
- const done=[known?`HP ${S.hp}`:"",cleared.length?`cleared ${cleared.join(", ")}`:"","uses refilled"].filter(Boolean).join(" · ");
+ // Without the origin the HP max is unknown, so HP stays put; a character still at 0 keeps Dying
+ const keepDying=!known&&S.hp<=0;
+ if(known)S.hp=hpMax();S.conds=keepDying?S.conds.filter(n=>norm(n)==="dying"):[];S.cdur={};S.used={};
+ const gone=cleared.filter(n=>!S.conds.includes(n));
+ const done=[known?`HP ${S.hp}`:"",gone.length?`cleared ${gone.join(", ")}`:"","uses refilled"].filter(Boolean).join(" · ");
  addRoll({n:"Rest",k:"note",lbl:"REST",x:done});
  msg.textContent="Rested: "+done+"."+(known?"":" HP wasn’t changed because your origin isn’t in the library.");
  $("#amsg").textContent=$("#rmsg").textContent="";update()});
@@ -720,6 +737,8 @@ function renderArmory(){
  $("#load").textContent=`${over?"!! Overburdened ":""}${Math.round(wt*10)/10} / ${mx} lb`;$("#load").className=over?"dn":"";
  $("#loadbar").style.width=pc+"%";$("#loadbar").style.background=over?"var(--bad)":pc>80?"#d9822b":"var(--ok)";
  setHTML($("#conds"),conds||`<div class="sub">No active conditions.</div>`);
+ // A compact line of the same conditions in the actions box, so they're in view during a fight
+ setHTML($("#cchips"),S.conds.map(n=>{const r=own(S.cdur,n),dy=norm(n)==="dying";return `<span class="${dy?"dn":""}" title="${r?r+" round"+(r===1?"":"s")+" left":"Until cleared"}">${esc(n)}${r?` (${r})`:""}</span>`}).join(""));
  setHTML($("#wpns"),wpns||`<div class="sub">No weapons equipped.</div>`);
  setHTML($("#gear"),gear||`<div class="sub">No items.</div>`);
  $("#addcond").innerHTML=opts("+ Apply condition…",(L.by.condition||[]).filter(c=>!S.conds.some(x=>norm(x)===norm(c.name))));
@@ -793,7 +812,8 @@ document.addEventListener("change",e=>{
    if(ty){const take=Math.min(mx,num(S.ammo[ty]));x.ammo=take;S.ammo[ty]=num(S.ammo[ty])-take}
    S.wpn.push(x);
    // Picking up a weapon with an empty main hand readies it straight away (out of a fight there is nothing to spend)
-   if(held().m<0)ready("main",S.wpn.length-1)}
+   // Ready it if the main hand is free, unless it's two-handed and something is in the off hand: never put a weapon away unasked
+   {const h=held();if(h.m<0&&!(isTwoH(x)&&h.o>=0))ready("main",S.wpn.length-1)}}
   else S.gear.push({link:t.value,qty:1});
   update()}});
 
