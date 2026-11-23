@@ -165,3 +165,9 @@ label{display:inline-flex;gap:6px;align-items:center}
 .opts label.sel{justify-content:space-between}
 .opts .grp{grid-column:1/-1;color:var(--dim);margin-top:8px}
 .opts input[type=range]{accent-color:var(--ink);flex:1;max-width:180px}
+/* Action pips: one square per action left this round */
+.aps{display:inline-flex;gap:6px;align-items:center}
+.ap{width:20px;height:20px;padding:0!important;border:2px solid var(--amber)!important;background:transparent!important;cursor:pointer;box-shadow:none}
+.ap.on{background:var(--amber)!important}
+.ap:hover{border-color:var(--hi)!important}
+.ap::before,.ap::after{content:none!important}

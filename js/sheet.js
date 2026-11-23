@@ -56,6 +56,9 @@ const fix=o=>(o=obj(o),{name:String(o.name||"Unnamed"),level:Math.max(1,Math.flo
  gear:(Array.isArray(o.gear)?o.gear:[]).filter(x=>x&&typeof x==="object").map(g=>g.link!=null?{link:String(g.link),qty:Math.max(0,fin(g.qty,1))}:{name:String(g.name||"Item"),qty:Math.max(0,fin(g.qty,1)),weight:Math.max(0,fin(g.weight))}),
  ammo:Object.fromEntries(Object.entries(o.ammo&&typeof o.ammo==="object"?o.ammo:{}).map(([k,v])=>[k,Math.max(0,Math.floor(+v)||0)])),
  cdur:Object.fromEntries(Object.entries(o.cdur&&typeof o.cdur==="object"?o.cdur:{}).map(([k,v])=>[k,Math.floor(+v)||0]).filter(([,v])=>v>0)),
+ // How many times each action (by normalised name) has been used since the last rest
+ used:numMap(o.used,v=>{const n=Math.floor(fin(v));return n>0?n:null}),
+ ap:Math.max(0,Math.min(20,Math.floor(fin(o.ap)))),// actions spent this round
  journal:Array.isArray(o.journal)?o.journal.filter(x=>x&&typeof x==="object").map(x=>({id:String(x.id||Date.now().toString(36)+Math.random().toString(36).slice(2,6)),
   title:String(x.title||"Untitled"),date:String(x.date||""),tags:String(x.tags||""),text:String(x.text||"")})):[]});
 // Storage: an index of characters ("chars-v1") plus one key per character ("char-<id>").
@@ -105,7 +108,7 @@ function reqStats(){const b=bonuses(true),attr={},skill={};
    skill[norm(n)]=skill[norm(n.replace("&","and"))]=v})});
  return{lvl:Math.max(1,Math.floor(S.level)||1),attr,skill}}
 // Lines in the Features & Bonuses box that won't do anything, with the reason
-const KNOWN=new Set(["maxhp","armor","mechanicalarmor","chemicalarmor","energybarrier","movement","initiative",...Object.keys(BONUS_ALIAS)]);
+const KNOWN=new Set(["actions","maxhp","armor","mechanicalarmor","chemicalarmor","energybarrier","movement","initiative",...Object.keys(BONUS_ALIAS)]);
 G.forEach(([k,ab,,sk])=>{KNOWN.add(norm(k));KNOWN.add(norm(ab));sk.forEach(n=>{KNOWN.add(norm(n));KNOWN.add(norm(n.replace("&","and")))})});
 function featIssues(){const out=[];
  S.feats.split("\n").forEach((l,i)=>{if(!l.trim())return;const c=l.indexOf(":"),at=`Line ${i+1}: `;
@@ -144,7 +147,7 @@ function fill(){$("[data-name]").value=S.name;sizeName();$("#diff").value=S.diff
 function update(){calc(true);calc()}
 function calc(dry){
  REQ=null;dedupeArmor();
- const b=bonuses(),lvl=Math.max(1,Math.floor(S.level)||1),cap=10+lvl*5,pool=120+(lvl-1)*40;let spent=0;const A={};CUR={lvl,attr:{},skill:{},fin:{}};
+ const b=bonuses(),lvl=Math.max(1,Math.floor(S.level)||1),cap=10+lvl*5,pool=120+(lvl-1)*40;let spent=0;const A={};CUR={lvl,attr:{},skill:{},fin:{},apMax:Math.max(0,AP_BASE+Math.round(b.actions||0))};
  G.forEach(([k,ab])=>{
   const bb=(b[norm(k)]||0)+(b[norm(ab)]||0),e=(+S.attr[k]||0)+bb,m=mult(e);
   A[k]={f:3*e,m};CUR.attr[norm(k)]=CUR.attr[norm(ab)]=e;
@@ -164,7 +167,7 @@ function calc(dry){
  const pe=$("#pool");pe.textContent=`${spent} / ${pool}`;pe.className=spent>pool?"dn":spent===pool?"up":"";
  if(dry)return;
  renderPts(spent,pool);
- $("#cap").textContent=cap;const libN=Object.values(L.by).reduce((a,x)=>a+x.length,0);$("#lcount").textContent=libN?libN+" entries"+(LIBSRC?" · "+LIBSRC:""):"empty";renderFeats();renderVis();renderDossier();renderArmory();renderLog();renderJournal();
+ $("#cap").textContent=cap;const libN=Object.values(L.by).reduce((a,x)=>a+x.length,0);$("#lcount").textContent=libN?libN+" entries"+(LIBSRC?" · "+LIBSRC:""):"empty";renderFeats();renderVis();renderDossier();renderArmory();renderActions();renderLog();renderJournal();
  save();renderChars();renderFeatWarn()}
 
 function roll(r){
@@ -194,6 +197,7 @@ function renderLog(){
  const dmg=e=>e.dmg!=null&&!isNaN(+e.dmg)?` · <b>${+e.dmg} dmg</b>`:"";
  const rows=S.rolls.map(e=>{
   if(e.k==="dice")return `<div class="rl"><span><b>[d] ${esc(e.n)}</b>${e.x?` <small>${esc(e.x)}</small>`:""}</span><b>${+e.t}</b></div>`;
+  if(e.k==="act"&&e.d==null)return `<div class="rl"><span><b>${esc(e.n)}</b>${dmg(e)}${e.x?` <small>${esc(e.x)}</small>`:""}</span><b class="up">USED</b></div>`;
   if(e.k==="cast")return `<div class="rl"><span><b>${esc(e.n)}</b>${dmg(e)}${e.x?` <small>${esc(e.x)}</small>`:""}</span><b class="up">CAST</b></div>`;
   const atk=e.k==="atk",ok=!!e.ok,df=+e.df||0;
   return `<div class="rl"><span><b>${esc(e.n)}</b> ${+e.d} ${ok?"≤":">"} ${+e.v}${df?` <small>${esc(DIFFN[df]||"")} ${df>0?"+":""}${df}</small>`:""}${dmg(e)}${e.x?` <small>${esc(e.x)}</small>`:""}</span><b class="${ok?"up":"dn"}">${atk?(ok?"HIT":"MISS"):(ok?"SUCCESS":"FAILURE")}</b></div>`}).join("");
@@ -395,7 +399,7 @@ function renderFeats(){
   return `<div class="tank it${it.name===fsel?" sel":""}${c?"":" lock"}" data-sel="${esc(it.name)}" role="button" tabindex="0" aria-pressed="${it.name===fsel}"><div class="tl"><span>${esc(it.name)}</span><small class="${h?"up":""}">${h?"✓ ACQUIRED":c?"COST "+cost(it):"[LOCKED]"}</small></div></div>`}).join(""):`<div class="sub">${all.length?(auto?"None acquired yet. They’re granted automatically by your "+fk.split("-")[0]+" as you meet their requirements.":"No feats acquired yet.")+" Tick Show all to browse every entry.":"Nothing here yet. Load your library on the Settings tab."}</div>`;
  fl.scrollTop=keep;
  const it=items.find(i=>i.name===fsel);
- $("#finfo").innerHTML=it?`<div class="tank"><div class="tl"><b>${esc(it.name)}</b>${fk==="feat"&&!has(it.name)?`<small class="sub" style="margin:0">Cost ${cost(it)}</small>`:""}</div><div class="tags">${prereq(it).r.map(([l,m])=>`<span class="${m?"up":"dn"}">${m?"✓":"!!"} ${esc(l)}</span>`).join("")||`<span>No prerequisites</span>`}</div><div class="sub">${esc(it.Description||it.Effect||"No description.")}</div>${auto?`<div class="sub ${has(it.name)?"up":""}" style="margin-top:10px">${has(it.name)?"✓ Acquired. Granted by your "+fk.split("-")[0]+".":"LOCKED: Granted automatically once your "+fk.split("-")[0]+" and the requirements above match."}</div>`:`<div class="btns"><button data-act="${has(it.name)?"drop":"take"}" data-it="${esc(it.name)}"${can(it)?"":" disabled"}>${has(it.name)?"× Remove":can(it)?"✓ Acquire":"Locked"}</button></div>`}</div>`:`<div class="tank"><div class="sub" style="margin:0">Select an entry to read it.</div></div>`}
+ $("#finfo").innerHTML=it?`<div class="tank"><div class="tl"><b>${esc(it.name)}</b>${fk==="feat"&&!has(it.name)?`<small class="sub" style="margin:0">Cost ${cost(it)}</small>`:""}</div><div class="tags">${prereq(it).r.map(([l,m])=>`<span class="${m?"up":"dn"}">${m?"✓":"!!"} ${esc(l)}</span>`).join("")||`<span>No prerequisites</span>`}</div><div class="sub">${esc(it.Description||it.Effect||"No description.")}</div>${actTags(it)}${auto?`<div class="sub ${has(it.name)?"up":""}" style="margin-top:10px">${has(it.name)?"✓ Acquired. Granted by your "+fk.split("-")[0]+".":"LOCKED: Granted automatically once your "+fk.split("-")[0]+" and the requirements above match."}</div>`:`<div class="btns"><button data-act="${has(it.name)?"drop":"take"}" data-it="${esc(it.name)}"${can(it)?"":" disabled"}>${has(it.name)?"× Remove":can(it)?"✓ Acquire":"Locked"}</button></div>`}</div>`:`<div class="tank"><div class="sub" style="margin:0">Select an entry to read it.</div></div>`}
 
 function renderVis(){
  const VF=S.vf,matchVF=sp=>!VF.length||EL.some(([n])=>VF.includes(n)&&+sp[n+"_Cost"]>0);
@@ -408,8 +412,8 @@ function renderVis(){
  const shown=known.filter(matchVF);
  $("#vfilter").innerHTML=`<b>Filter</b>`+EL.map(([n,y,c])=>`<button data-vf="${n}" aria-pressed="${VF.includes(n)}" class="${VF.includes(n)?"cur":""}" style="color:${c}">${y} ${n}</button>`).join("")+(VF.length?`<button data-vf="">Clear</button><span class="sub" style="margin:0">${shown.length} of ${known.length}</span>`:"");
  $("#vspells").innerHTML=shown.map(sp=>{
-  const cs=EL.filter(([n])=>+sp[n+"_Cost"]>0),ok=cs.every(([n])=>vis(n).cur>=+sp[n+"_Cost"]);
-  return `<div class="tank${ok?"":" lock"}"><div class="tl"><b>${esc(sp.name)} <small>${esc([sp.School,sp.Tier!=null?"T"+sp.Tier:""].filter(Boolean).join(" · "))}</small></b><span><button data-cast="${esc(sp.name)}"${ok?"":" disabled"}>${ok?"Cast":"No vis"}</button> <button data-forget="${esc(sp.name)}" aria-label="Forget ${esc(sp.name)}">×</button></span></div><div class="sub">${esc(sp.Description||"")}</div><div class="tags">${cs.length?cs.map(([n,y,c])=>`<span style="color:${vis(n).cur>=+sp[n+"_Cost"]?c:"var(--bad)"}">${y} ${sp[n+"_Cost"]} ${n}</span>`).join(""):"<span>Cantrip · 0 vis</span>"}</div></div>`}).join("")||`<div class="sub">${known.length?"No known spells match the filter.":"No known spells. Load your library, then pick one under Learn spell."}</div>`}
+  const cs=EL.filter(([n])=>+sp[n+"_Cost"]>0),ok=cs.every(([n])=>vis(n).cur>=+sp[n+"_Cost"]),ac=apCost(sp),short=ac>apLeft();
+  return `<div class="tank${ok?"":" lock"}"><div class="tl"><b>${esc(sp.name)} <small>${esc([sp.School,sp.Tier!=null?"T"+sp.Tier:"",apLabel(ac)].filter(Boolean).join(" · "))}</small></b><span><button data-cast="${esc(sp.name)}"${ok&&!short?"":" disabled"}>${!ok?"No vis":short?`Needs ${apLabel(ac)}`:"Cast"}</button> <button data-forget="${esc(sp.name)}" aria-label="Forget ${esc(sp.name)}">×</button></span></div><div class="sub">${esc(sp.Description||"")}</div><div class="tags">${cs.length?cs.map(([n,y,c])=>`<span style="color:${vis(n).cur>=+sp[n+"_Cost"]?c:"var(--bad)"}">${y} ${sp[n+"_Cost"]} ${n}</span>`).join(""):"<span>Cantrip · 0 vis</span>"}</div></div>`}).join("")||`<div class="sub">${known.length?"No known spells match the filter.":"No known spells. Load your library, then pick one under Learn spell."}</div>`}
 
 document.addEventListener("click",e=>{const g=e.target.closest("[data-vf]");if(!g)return;const v=g.dataset.vf;
  S.vf=!v?[]:S.vf.includes(v)?S.vf.filter(x=>x!==v):[...S.vf,v];save();renderVis()});
@@ -423,6 +427,7 @@ document.addEventListener("click",e=>{
  else if(d.act&&fk==="feat"){const a=S.got[fk];S.got[fk]=d.act==="take"?(a.some(x=>norm(x)===norm(d.it))?a:[...a,d.it]):a.filter(x=>norm(x)!==norm(d.it));update()}
  else if(d.vd){const v=vis(d.el);v.cur=Math.max(0,Math.min(v.max,v.cur+ +d.vd));update()}
  else if(d.cast){const sp=L.all[norm(d.cast)];if(!sp)return;const paid=[];
+  if(!spendAP(apCost(sp),sp.name,$("#vmsg")))return;$("#vmsg").textContent="";
   EL.forEach(([n])=>{const c=+sp[n+"_Cost"]||0;if(c){vis(n).cur=Math.max(0,vis(n).cur-c);paid.push(c+" "+n)}});
   const dm=sp.Damage?rollDice(sp.Damage):null;
   addRoll({n:sp.name,k:"cast",dmg:dm?dm.total:null,x:[paid.join(", ")||"0 vis",sp.Damage?(dm?dmgText(sp.Damage,dm):"DMG "+sp.Damage):""].filter(Boolean).join(" · ")});
@@ -541,6 +546,73 @@ function mag(i,ammo,mx){const per=magPer(mx),n=Math.ceil(mx/per);let h="";
 // (opened offline as a file, or before it has loaded) every unknown name guesses "Torso", and must not be deleted.
 // Runs at the start of every calc, before anything counts armor, so the totals never include a duplicate.
 function dedupeArmor(){const seen={};S.arm=S.arm.filter(n=>{const sl=slotOf(n);if(seen[sl])return !(W(n)&&W(seen[sl]));seen[sl]=n;return true})}
+// ---------- Actions ----------
+// An action is a library "action" entry. It reaches a character only through a feat or feature that
+// lists it under Actions: bought feats, plus the origin/career features they currently qualify for.
+const actionOf=n=>(L.by.action||[]).find(x=>norm(x.name)===norm(n));
+const actNames=it=>[].concat((it&&it.Actions)||[]).map(x=>nm(String(x))).filter(Boolean);
+function grantedActions(){const m=new Map();
+ const feats=[...S.got.feat,...gotNames("origin-feature"),...gotNames("career-feature")];
+ for(const fn of feats){const f=W(fn);if(!f)continue;
+  for(const an of actNames(f)){const k=norm(an),it=actionOf(an);
+   if(!m.has(k))m.set(k,{name:it?it.name:an,it,from:[]});
+   const e=m.get(k);if(!e.from.includes(f.name))e.from.push(f.name)}}
+ return[...m.values()].sort((a,b)=>a.name.localeCompare(b.name))}
+// Shown on a feat or feature's details, so players can see what buying it unlocks
+const actTags=it=>{const a=actNames(it);return a.length?`<div class="tags"><span class="up">Grants</span>${a.map(n=>`<span>${esc(n)}</span>`).join("")}</div>`:""};
+// Every character gets 3 actions a round, plus or minus "Actions" bonuses from feats, gear and conditions
+// (worked out in calc as CUR.apMax). S.ap counts the ones spent, and Next round gives them back.
+const AP_BASE=3;
+const apMax=()=>CUR.apMax??AP_BASE;
+const apLeft=()=>Math.max(0,apMax()-S.ap);
+// An action's cost in actions: blank means 1, 0 means free
+const apCost=it=>it&&it.Action_Cost!=null&&it.Action_Cost!==""?Math.max(0,Math.floor(num(it.Action_Cost,1))):1;
+const apLabel=n=>n===0?"Free":n+(n===1?" action":" actions");
+// Spend n actions, or explain why not (into msgEl) and return false
+function spendAP(n,what,msgEl){if(n>apLeft()){msgEl.textContent=`${what} takes ${apLabel(n)}, but you have ${apLeft()} left this round.`;return false}S.ap+=n;return true}
+function renderAP(){const l=apLeft();
+ const mx=apMax(),d=mx-AP_BASE;
+ setHTML($("#aps"),Array.from({length:mx},(_,i)=>`<button class="ap${i<l?" on":""}" data-ap="${i+1}" aria-label="Set ${i+1} action${i?"s":""} left" title="Click to correct how many actions are left"></button>`).join(""));
+ $("#apn").innerHTML=`${l} / ${mx} left`+(d?` <small class="${d>0?"up":"dn"}" title="From Actions bonuses">(${d>0?"+":""}${d})</small>`:"");$("#apn").className=l?"":"dn"}
+document.addEventListener("click",e=>{const p=e.target.closest("[data-ap]");if(!p)return;const k=+p.dataset.ap;
+ S.ap=apMax()-(apLeft()===k?k-1:k);update()});
+const usesOf=a=>{const max=Math.max(0,Math.floor(num(a.it&&a.it.Uses))),used=S.used[norm(a.name)]||0;return{max,left:Math.max(0,max-used)}};
+function renderActions(){
+ const list=grantedActions();
+ renderAP();
+ setHTML($("#acts"),list.map(a=>{const it=a.it||{},{max,left}=usesOf(a),c=apCost(it),short=c>apLeft(),out=max&&!left,roll=it.Roll,t=roll?CUR.fin[norm(roll)]:null;
+  const facts=[roll?`${esc(roll)} (${t??`<b class="dn" title="No skill called ${esc(roll)} on this sheet">?</b>`})`:"",
+   it.Damage?"DMG "+esc(it.Damage):"",it.Range?"Range "+esc(it.Range):""].filter(Boolean).join(" · ");
+  const desc=it.Description||it.Effect||"";
+  return `<div class="tank${out?" lock":""}"><div class="tl"><b>${esc(a.name)}</b><small class="sub${short&&!out?" dn":""}" style="margin:0">${apLabel(c)}</small></div>`+
+   (a.it?"":`<div class="sub dn">Not in your library, so there are no details.</div>`)+
+   (facts?`<div class="sub">${facts}</div>`:"")+(desc?`<div class="sub lore">${esc(desc)}</div>`:"")+
+   `<div class="tl" style="margin-top:6px;flex-wrap:wrap"><button data-use="${esc(a.name)}"${out||short?" disabled":""} style="white-space:nowrap">${out?"No uses left":short?`Needs ${apLabel(c)}`:roll?"Use & roll":"Use"}</button>`+
+   (max?`<span class="sub" style="margin:0;white-space:nowrap"><b class="${left?"":"dn"}">${left}</b> / ${max} uses${left<max?` <button data-ureset="${esc(a.name)}" aria-label="Refill ${esc(a.name)}" title="Refill this action's uses">↻</button>`:""}</span>`:"")+
+   `</div><div class="sub" style="margin:6px 0 0"><small>From ${a.from.map(esc).join(", ")}</small></div></div>`}).join("")||
+  `<div class="sub">No actions yet. Feats and features that grant actions add them here once you have them.</div>`);
+ $("#arest").hidden=!list.some(a=>usesOf(a).max)}
+
+document.addEventListener("click",e=>{
+ const g=e.target.closest("[data-use],[data-ureset],#arest");if(!g)return;const msg=$("#amsg");
+ if(g.id==="arest"){S.used={};msg.textContent="Rested: every action’s uses are refilled.";update();return}
+ if(g.dataset.ureset!==undefined){delete S.used[norm(g.dataset.ureset)];msg.textContent=`${g.dataset.ureset} refilled.`;update();return}
+ const a=grantedActions().find(x=>norm(x.name)===norm(g.dataset.use));if(!a)return;
+ const it=a.it||{},{max,left}=usesOf(a),k=norm(a.name);
+ if(max&&!left){msg.textContent=`No uses of ${a.name} left. Rest to refill.`;return}
+ let t=null;
+ if(it.Roll){t=CUR.fin[norm(it.Roll)];if(t==null){msg.textContent=`${a.name}: no skill called “${it.Roll}”. Check the action’s Roll field.`;return}}
+ if(!spendAP(apCost(it),a.name,msg))return;
+ if(max)S.used[k]=(S.used[k]||0)+1;
+ const tail=max?` (${left-1} of ${max} uses left)`:"";
+ if(t!=null){const r=Math.floor(Math.random()*100)+1,ok=r<=t,dm=ok&&it.Damage?rollDice(it.Damage):null;
+  addRoll({n:`${a.name} [${it.Roll}]`,d:r,v:t,ok,df:S.diff,k:"act",dmg:dm?dm.total:null,x:ok&&it.Damage?(dm?dmgText(it.Damage,dm):"DMG "+it.Damage):""});
+  msg.textContent=`${a.name}: ${r} ${ok?"≤":">"} ${t}, ${ok?"success":"failure"}${dm?`, ${dm.total} dmg`:""}${tail}.`}
+ else{const dm=it.Damage?rollDice(it.Damage):null;
+  addRoll({n:a.name,k:"act",dmg:dm?dm.total:null,x:it.Damage?(dm?dmgText(it.Damage,dm):"DMG "+it.Damage):""});
+  msg.textContent=`Used ${a.name}${dm?`, ${dm.total} dmg`:""}${tail}.`}
+ update()});
+
 function renderArmory(){
  let wt=0;
  const bySlot={};S.arm.forEach(n=>{const sl=slotOf(n);if(!bySlot[sl])bySlot[sl]=n});
@@ -553,7 +625,7 @@ function renderArmory(){
  $("#armtot").textContent=`+${armSum} mechanical · +${chemSum} chemical from gear`;
  const wpns=S.wpn.map((x,i)=>{const it=W(x.name)||{},mx=num(it.MaxAmmo),w=num(it.Weight),fire=mx>0,empty=fire&&x.ammo<=0,sk=it.Skill||"One-Handed";wt+=w;
   const ty=fire?wtype(x):"",sp=ty?num(S.ammo[ty]):0,full=x.ammo>=mx,dry=ty&&sp<=0&&!full;
-  return `<div class="tank"><div class="tl"><b>${esc(x.name)}</b><span>${w} lb <button data-un="wpn" data-i="${i}" aria-label="Unequip ${esc(x.name)}">×</button></span></div><div class="sub">${esc(sk)} (${CUR.fin[norm(sk)]??`<b class="dn" title="No skill called ${esc(sk)} on this sheet">?</b>`}) · DMG ${esc(it.Damage||"—")}${it.Range?" · RNG "+esc(it.Range):""}</div>${it.Notes?`<div class="sub">${esc(it.Notes)}</div>`:""}${bonTags(it)}${fire?mag(i,x.ammo,mx):""}<div class="tl" style="margin-top:6px;flex-wrap:wrap"><button data-atk="${i}"${empty?" disabled":""} style="white-space:nowrap">${empty?"Empty, reload":fire?"Fire & roll":"Strike & roll"}</button>${fire?`<span class="sub" style="margin:0;white-space:nowrap"><b class="${empty?"dn":""}">${x.ammo}</b> / ${mx}${magPer(mx)>1?` <small>(each ▮ = ${magPer(mx)})</small>`:""} <button data-rl="${i}"${full||dry?" disabled":""}>${dry?"No spare ammo":"↻ Reload"}</button></span>`:""}</div>`+
+  return `<div class="tank"><div class="tl"><b>${esc(x.name)}</b><span>${w} lb <button data-un="wpn" data-i="${i}" aria-label="Unequip ${esc(x.name)}">×</button></span></div><div class="sub">${esc(sk)} (${CUR.fin[norm(sk)]??`<b class="dn" title="No skill called ${esc(sk)} on this sheet">?</b>`}) · DMG ${esc(it.Damage||"—")}${it.Range?" · Range "+esc(it.Range):""}</div>${it.Notes?`<div class="sub">${esc(it.Notes)}</div>`:""}${bonTags(it)}${fire?mag(i,x.ammo,mx):""}<div class="tl" style="margin-top:6px;flex-wrap:wrap"><button data-atk="${i}"${empty||apLeft()<1?" disabled":""} style="white-space:nowrap">${empty?"Empty, reload":apLeft()<1?"No actions left":fire?"Fire & roll":"Strike & roll"}</button>${fire?`<span class="sub" style="margin:0;white-space:nowrap"><b class="${empty?"dn":""}">${x.ammo}</b> / ${mx}${magPer(mx)>1?` <small>(each ▮ = ${magPer(mx)})</small>`:""} <button data-rl="${i}"${full||dry||apLeft()<1?" disabled":""}>${dry?"No spare ammo":!full&&apLeft()<1?"No actions left":"↻ Reload"}</button></span>`:""}</div>`+
    (fire?`<div class="tl wammo" style="margin-top:6px"><label class="sub" style="margin:0">Ammo <select data-wtype="${i}" aria-label="${esc(x.name)} ammo type"><option value=""${ty?"":" selected"}>— untracked —</option>${ammoTypes().map(t=>`<option${t===ty?" selected":""}>${esc(t)}</option>`).join("")}</select></label><span class="sub" style="margin:0">${ty?`<b class="${sp?"":"dn"}">${sp}</b> spare`:"free reloads"}</span></div>`:"")+`</div>`}).join("");
  const used={};S.wpn.forEach(x=>{const t=wtype(x);if(t&&num((W(x.name)||{}).MaxAmmo)>0)(used[t]=used[t]||[]).push(x.name)});
  setHTML($("#ammo"),ammoTypes().map(t=>`<div class="tank${used[t]?" on":""}"><div class="tl"><b>${esc(t)}</b><input type="number" min="0" data-ammotype="${esc(t)}" value="${num(S.ammo[t])}" aria-label="${esc(t)} spare rounds"></div><div class="btns">${[-10,-1,1,10].map(v=>`<button data-ad="${v}" data-at="${esc(t)}" aria-label="${v>0?"Add":"Remove"} ${Math.abs(v)} ${esc(t)}">${v>0?"+":""}${v}</button>`).join("")}</div>${used[t]?`<div class="sub">${used[t].map(esc).join(", ")}</div>`:""}</div>`).join(""));
@@ -575,7 +647,8 @@ document.addEventListener("click",e=>{
  const g=e.target.closest("[data-hd],[data-bd],[data-un],[data-atk],[data-rl],[data-shot],[data-ad],#addcustom,#nextr");if(!g)return;
  if(g.id==="nextr"){const gone=[];
   S.conds=S.conds.filter(n=>{if(!S.cdur[n])return true;if(--S.cdur[n]>0)return true;delete S.cdur[n];gone.push(n);return false});
-  $("#rmsg").textContent=gone.length?`Round passed. ${gone.join(", ")} wore off.`:"Round passed.";update();return}
+  S.ap=0;$("#amsg").textContent=$("#atk").textContent="";
+  $("#rmsg").textContent=`New round: ${apMax()} action${apMax()===1?"":"s"} back.`+(gone.length?` ${gone.join(", ")} wore off.`:"");update();return}
  const d=g.dataset,i=+d.i;
  if(d.hd){const prev=S.hp;S.hp=capHp(Math.min(hpCap(),prev)+ +d.hd);hpChanged(prev);update()}
  else if(d.bd){const m=barrierMax();S.barrier=d.bd==="full"?m:Math.max(0,Math.min(m,Math.min(m,S.barrier)+ +d.bd));update()}
@@ -587,6 +660,10 @@ document.addEventListener("click",e=>{
  else if(d.ad){S.ammo[d.at]=Math.max(0,num(S.ammo[d.at])+ +d.ad);update()}
  else if(d.shot){const[wi,k]=d.shot.split("|").map(Number),x=S.wpn[wi],mx=num((W(x.name)||{}).MaxAmmo),per=magPer(mx),top=Math.min(mx,k*per);x.ammo=x.ammo===top?(k-1)*per:top;update()}
  else if(d.rl){const x=S.wpn[+d.rl],mx=num((W(x.name)||{}).MaxAmmo),ty=wtype(x),need=Math.max(0,mx-x.ammo);
+  // Reloading takes an action; check there is something to load first, so a full gun or empty pool costs nothing
+  if(!need)return;
+  if(ty&&!num(S.ammo[ty])){$("#atk").textContent=`!! No spare ${ty} for ${x.name}.`;return}
+  if(!spendAP(1,`Reloading ${x.name}`,$("#atk")))return;
   if(!ty){x.ammo=mx;$("#atk").textContent=`↻ ${x.name} reloaded.`}
   else{const take=Math.min(need,num(S.ammo[ty]));if(!take){$("#atk").textContent=`!! No spare ${ty} for ${x.name}.`;return}
    x.ammo+=take;S.ammo[ty]=num(S.ammo[ty])-take;
@@ -594,7 +671,9 @@ document.addEventListener("click",e=>{
   update()}
  else if(d.atk!==undefined){const x=S.wpn[+d.atk],it=W(x.name)||{},sk=it.Skill||"One-Handed",t=CUR.fin[norm(sk)];
   if(t==null){$("#atk").innerHTML=`!! <b>${esc(x.name)}</b>: no skill called “${esc(sk)}”. Check the weapon’s Skill field.`;return}
-  if(num(it.MaxAmmo)>0){if(x.ammo<=0)return;x.ammo--}
+  if(num(it.MaxAmmo)>0&&x.ammo<=0)return;
+  if(!spendAP(1,x.name,$("#atk")))return;
+  if(num(it.MaxAmmo)>0)x.ammo--;
   const r=Math.floor(Math.random()*100)+1,ok=r<=t;
   const dm=ok&&it.Damage?rollDice(it.Damage):null;
   addRoll({n:x.name+" ["+sk+"]",d:r,v:t,ok,df:S.diff,k:"atk",dmg:dm?dm.total:null,x:ok&&it.Damage?(dm?dmgText(it.Damage,dm):"DMG "+it.Damage):""});
