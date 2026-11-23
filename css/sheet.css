@@ -177,3 +177,6 @@ label{display:inline-flex;gap:6px;align-items:center}
 /* Basic actions sit beside Next round and wrap under the pips on narrow screens */
 .apbar .tl{flex-wrap:wrap}
 .basics{margin:0;gap:6px;justify-content:flex-end}
+/* Owned weapons that are in a hand are outlined */
+#owned .on,#wpns .on{border-color:var(--amber)}
+[data-hand]{max-width:60%}

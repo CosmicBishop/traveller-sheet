@@ -110,20 +110,23 @@
     <div class="aslots" id="aslots"></div>
    </aside>
    <div>
-    <div class="btns" style="margin-top:6px"><b>Items</b><select id="additem" aria-label="Add item"></select><button id="addcustom">+ Custom item</button></div>
+    <div class="btns" style="margin-top:6px"><b>Weapons owned</b><select id="addwpn" aria-label="Add a weapon this character carries"></select></div>
+    <div class="grid" id="owned"></div>
+    <div class="btns" style="margin-top:14px"><b>Items</b><select id="additem" aria-label="Add item"></select><button id="addcustom">+ Custom item</button></div>
     <div class="grid" id="gear"></div>
-    <div class="sub" style="margin-top:14px">Weapons, spare ammo and conditions are on the Actions tab.</div>
+    <div class="sub" style="margin-top:14px">What each hand holds, spare ammo and conditions are on the Actions tab.</div>
     <textarea data-m="log" rows="3" placeholder="Weapon jams, crucible faults, active effects…" aria-label="Field log"></textarea>
    </div>
   </div>
  </section>
  <section class="panel" data-tab="action" hidden>
   <div class="tank apbar"><div class="tl"><span class="btns" style="margin:0"><b>Actions this round</b><span id="aps" class="aps" role="group" aria-label="Actions left this round"></span><span id="apn"></span></span><span class="btns basics" role="group" aria-label="Basic actions"><button data-basic="Movement" title="Move up to your Movement (1 action)">Movement</button><button data-basic="Take Cover" title="1 action">Take Cover</button><button data-basic="Assist" title="1 action">Assist</button><button data-basic="Swap Weapon" title="1 action">Swap Weapon</button><button data-basic="Look" title="1 action">Look</button><button id="nextr" title="Get your actions back and count down timed conditions">&gt;&gt; Next round</button></span></div><div id="rmsg" class="sub" style="margin:4px 0 0" role="status" aria-live="polite"></div></div>
-  <div class="btns" style="margin-top:14px"><b>Weapons</b><select id="addwpn" aria-label="Equip weapon"></select><span id="atk" class="sub" role="status" aria-live="polite"></span></div>
+  <div class="tank" style="margin-top:14px"><div class="tl"><b>Health</b><span id="hpsum" class="sub" style="margin:0"></span></div><form id="dmgf" class="btns" style="margin-top:6px"><label>Take damage <input type="number" id="dmgn" min="0" placeholder="0" aria-label="Damage taken"></label><select id="dmgk" aria-label="Damage type"><option value="phys">Physical</option><option value="spell">Spell</option></select><button>Apply</button><button type="button" id="rest" title="Refill HP, clear every condition and refill each action's uses per rest">Rest</button></form><div id="hmsg" class="sub" style="margin:4px 0 0" role="status" aria-live="polite"></div></div>
+  <div class="btns" style="margin-top:14px"><b>In hand</b><span class="sub" style="margin:0">Readying a weapon takes 1 action; putting one away is free.</span><span id="atk" class="sub" role="status" aria-live="polite"></span></div>
   <div class="grid" id="wpns"></div>
   <div class="btns" style="margin-top:14px"><b>Spare ammo</b><span class="sub" style="margin:0">Reloading draws from these. Weapons share a pool when they use the same ammo type.</span></div>
   <div class="ammo" id="ammo"></div>
-  <div class="btns" style="margin-top:14px"><b>Actions</b><button id="arest" title="Refill the uses of every action">Rest: refill uses</button><span id="amsg" class="sub" style="margin:0" role="status" aria-live="polite"></span></div>
+  <div class="btns" style="margin-top:14px"><b>Actions</b><span id="amsg" class="sub" style="margin:0" role="status" aria-live="polite"></span></div>
   <div class="grid" id="acts"></div>
   <div class="rlog" data-rlog></div>
   <div class="btns" style="margin-top:14px"><b>Conditions</b><select id="addcond" aria-label="Apply condition"></select><span class="sub" style="margin:0">Next round counts these down.</span></div>

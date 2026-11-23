@@ -162,6 +162,7 @@ const rnd=n=>1+Math.floor(Math.random()*n);
 // What to show when the die lands, from the roll log entry sheet.js just added
 function landing(e){
  if(e.k==="dice")return{n:e.t,a:"TOTAL",b:""};
+ if(e.k==="note")return null;// damage taken or a rest: nothing was rolled
  // Spells and actions used without a roll (no d100) only tumble when there's damage to show
  if(e.k==="cast"||(e.k==="act"&&e.d==null))return e.dmg==null?null:{n:e.dmg,a:"DAMAGE",b:""};
  const ok=!!e.ok,atk=e.k==="atk",dmg=e.dmg!=null?` ${e.dmg} DMG`:"";

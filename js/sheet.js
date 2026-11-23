@@ -36,7 +36,7 @@ const fin=(x,d=0)=>{const v=+x;return Number.isFinite(v)?v:d};
 const strs=a=>Array.isArray(a)?a.filter(x=>x!=null&&typeof x!=="object").map(String):[];
 const obj=o=>o&&typeof o==="object"&&!Array.isArray(o)?o:{};
 const numMap=(o,f)=>Object.fromEntries(Object.entries(obj(o)).map(([k,v])=>[k,f(v)]).filter(([,v])=>v!==null));
-const fix=o=>(o=obj(o),{name:String(o.name||"Unnamed"),level:Math.max(1,Math.floor(fin(o.level,1))||1),
+const fix0=o=>(o=obj(o),{name:String(o.name||"Unnamed"),level:Math.max(1,Math.floor(fin(o.level,1))||1),
  attr:{...Object.fromEntries(G.map(g=>[g[0],5])),...numMap(o.attr,v=>fin(v,5))},
  pts:numMap(o.pts,v=>{const n=Math.floor(fin(v));return n>0?n:null}),temp:numMap(o.temp,v=>fin(v)||null),
  feats:String(o.feats??""),career:String(o.career||""),origin:String(o.origin||""),
@@ -51,7 +51,7 @@ const fix=o=>(o=obj(o),{name:String(o.name||"Unnamed"),level:Math.max(1,Math.flo
  barrier:Math.max(0,fin(o.barrier,0)),armorBase:fin(o.armorBase,0),chemBase:fin(o.chemBase,0),move:fin(o.move,0),init:fin(o.init,0),
  age:String(o.age||""),bg:String(o.bg||""),faction:String(o.faction||""),motive:String(o.motive||""),bio:String(o.bio||""),log:String(o.log||""),// Portraits are only ever embedded images; a web address in an imported file would make the sheet fetch another site
  portrait:/^data:image\/(png|jpe?g|gif|webp);base64,[a-z0-9+/=]+$/i.test(String(o.portrait||""))?String(o.portrait):"",showAll:!!o.showAll,
- wpn:(Array.isArray(o.wpn)?o.wpn:[]).filter(x=>x&&typeof x==="object"&&x.name!=null).map(x=>{const w={name:String(x.name),ammo:Math.max(0,Math.floor(fin(x.ammo)))};if(typeof x.type==="string")w.type=x.type;return w}),
+ wpn:(Array.isArray(o.wpn)?o.wpn:[]).filter(x=>x&&typeof x==="object"&&x.name!=null).map(x=>{const w={name:String(x.name),ammo:Math.max(0,Math.floor(fin(x.ammo)))};if(typeof x.type==="string")w.type=x.type;if(x.hand==="main"||x.hand==="off")w.hand=x.hand;return w}),
  arm:strs(o.arm),conds:strs(o.conds),
  gear:(Array.isArray(o.gear)?o.gear:[]).filter(x=>x&&typeof x==="object").map(g=>g.link!=null?{link:String(g.link),qty:Math.max(0,fin(g.qty,1))}:{name:String(g.name||"Item"),qty:Math.max(0,fin(g.qty,1)),weight:Math.max(0,fin(g.weight))}),
  ammo:Object.fromEntries(Object.entries(o.ammo&&typeof o.ammo==="object"?o.ammo:{}).map(([k,v])=>[k,Math.max(0,Math.floor(+v)||0)])),
@@ -61,6 +61,12 @@ const fix=o=>(o=obj(o),{name:String(o.name||"Unnamed"),level:Math.max(1,Math.flo
  ap:Math.max(0,Math.min(99,Math.floor(fin(o.ap)))),// actions spent this round
  journal:Array.isArray(o.journal)?o.journal.filter(x=>x&&typeof x==="object").map(x=>({id:String(x.id||Date.now().toString(36)+Math.random().toString(36).slice(2,6)),
   title:String(x.title||"Untitled"),date:String(x.date||""),tags:String(x.tags||""),text:String(x.text||"")})):[]});
+// S.wpn is every weapon the character owns; each one's hand ("main", "off" or none = stowed) says what's held.
+// Characters saved before hands existed (no hv) had every weapon "equipped", so their first one goes in the main hand.
+const fix=o=>{const c=fix0(o),seen={};
+ if(obj(o).hv!==1&&c.wpn.length&&!c.wpn.some(w=>w.hand))c.wpn[0].hand="main";
+ c.wpn.forEach(w=>{if(w.hand&&seen[w.hand])delete w.hand;else if(w.hand)seen[w.hand]=1});
+ c.hv=1;return c};
 // Storage: an index of characters ("chars-v1") plus one key per character ("char-<id>").
 // The old single-sheet key ("sheet-v1") is migrated on first run and left in place as a backup.
 const LS={get(k){try{return JSON.parse(localStorage.getItem(k)||"null")}catch(e){return null}},
@@ -96,7 +102,7 @@ function bonuses(noAuto){const b={};
    if(m){const k=bkey(m[1]);b[k]=(b[k]||0)+Number(m[2].replace(/\s/g,""))}})});
  const its=[...S.got.feat,...(noAuto?[]:[...gotNames("origin-feature"),...gotNames("career-feature")])].map(n=>L.all[norm(n)]);
  ["career","origin"].forEach(k=>its.push((L.by[k]||[]).find(x=>norm(x.name)===norm(S[k]))));
- S.arm.forEach(n=>its.push(L.all[norm(n)]));S.wpn.forEach(x=>its.push(L.all[norm(x.name)]));S.conds.forEach(n=>its.push(L.all[norm(n)]));
+ S.arm.forEach(n=>its.push(L.all[norm(n)]));inHand().forEach(x=>its.push(L.all[norm(x.name)]));S.conds.forEach(n=>its.push(L.all[norm(n)]));
  its.forEach(it=>{for(const[k,v]of bonusEntries(it)){const q=bkey(k);b[q]=(b[q]||0)+v}});
  return b}
 // The stats requirements are checked against: everything except auto-granted features (see above).
@@ -198,6 +204,8 @@ function renderLog(){
  const rows=S.rolls.map(e=>{
   if(e.k==="dice")return `<div class="rl"><span><b>[d] ${esc(e.n)}</b>${e.x?` <small>${esc(e.x)}</small>`:""}</span><b>${+e.t}</b></div>`;
   if(e.k==="act"&&e.d==null)return `<div class="rl"><span><b>${esc(e.n)}</b>${dmg(e)}${e.x?` <small>${esc(e.x)}</small>`:""}</span><b class="up">USED</b></div>`;
+  // Notes with no roll: damage taken, a rest
+  if(e.k==="note")return `<div class="rl"><span><b>${esc(e.n)}</b>${e.x?` <small>${esc(e.x)}</small>`:""}</span><b class="${e.bad?"dn":"up"}">${esc(e.lbl||"")}</b></div>`;
   if(e.k==="cast")return `<div class="rl"><span><b>${esc(e.n)}</b>${dmg(e)}${e.x?` <small>${esc(e.x)}</small>`:""}</span><b class="up">CAST</b></div>`;
   const atk=e.k==="atk",ok=!!e.ok,df=+e.df||0;
   return `<div class="rl"><span><b>${esc(e.n)}</b> ${+e.d} ${ok?"≤":">"} ${+e.v}${df?` <small>${esc(DIFFN[df]||"")} ${df>0?"+":""}${df}</small>`:""}${dmg(e)}${e.x?` <small>${esc(e.x)}</small>`:""}</span><b class="${ok?"up":"dn"}">${atk?(ok?"HIT":"MISS"):(ok?"SUCCESS":"FAILURE")}</b></div>`}).join("");
@@ -585,6 +593,8 @@ document.addEventListener("click",e=>{const p=e.target.closest("[data-ap]");if(!
 // Basic actions everyone has (Movement, Take Cover, Assist, Swap Weapon, Look): 1 action each, logged as USED
 const moveTotal=()=>num((originOf()||{}).Movement)+S.move+(bonuses().movement||0);
 document.addEventListener("click",e=>{const g=e.target.closest("[data-basic]");if(!g)return;const n=g.dataset.basic,msg=$("#rmsg");
+ // Swap Weapon is done by picking from a hand box (which spends the action), so the button just points there
+ if(n==="Swap Weapon"){const s=$('[data-hand="main"]');msg.textContent=S.wpn.length?"Pick a weapon in the Main hand or Off hand box. Readying one takes 1 action.":"No weapons owned. Add them on the Armory tab.";if(s&&!s.disabled){s.scrollIntoView({block:"center"});s.focus()}return}
  if(!spendAP(1,n,msg))return;
  addRoll({n,k:"act",x:n==="Movement"?`up to ${moveTotal()} hex`:""});
  msg.textContent=`${n}: ${apLeft()} action${apLeft()===1?"":"s"} left.`;update()});
@@ -603,11 +613,36 @@ function renderActions(){
    (max?`<span class="sub" style="margin:0;white-space:nowrap"><b class="${left?"":"dn"}">${left}</b> / ${max} uses${left<max?` <button data-ureset="${esc(a.name)}" aria-label="Refill ${esc(a.name)}" title="Refill this action's uses">↻</button>`:""}</span>`:"")+
    `</div><div class="sub" style="margin:6px 0 0"><small>From ${a.from.map(esc).join(", ")}</small></div></div>`}).join("")||
   `<div class="sub">No actions yet. Feats and features that grant actions add them here once you have them.</div>`);
- $("#arest").hidden=!list.some(a=>usesOf(a).max)}
+ renderHealth()}
+
+// ---------- Health: taking damage and resting ----------
+function renderHealth(){const b=bonuses(),a=armorTotals(b),bm=barrierMax(b),max=hpKnown()?hpMax(b):null;
+ $("#hpsum").innerHTML=`HP <b class="${S.hp<=0?"dn":""}">${S.hp}</b>${max!=null?` / ${max}`:""}`+(bm?` · Barrier <b>${Math.min(S.barrier,bm)}</b> / ${bm}`:"")+
+  ` · Armor ${a.mech} mech / ${a.chem} chem`}
+// Damage goes through the matching armor first (Mechanical for physical, Chemical for spells),
+// then the Energy Barrier soaks what it can, and the rest comes off HP
+$("#dmgf").addEventListener("submit",e=>{e.preventDefault();const n=Math.floor(num($("#dmgn").value)),msg=$("#hmsg");
+ if(!(n>0)){msg.textContent="Enter how much damage you took.";return}
+ const spell=$("#dmgk").value==="spell",kind=spell?"Spell":"Physical",b=bonuses(),arm=Math.max(0,spell?armorTotals(b).chem:armorTotals(b).mech);
+ const afterArm=Math.max(0,n-arm),bar=Math.min(afterArm,Math.max(0,Math.min(S.barrier,barrierMax(b)))),hit=afterArm-bar,prev=S.hp;
+ S.barrier=Math.max(0,S.barrier-bar);S.hp=Math.max(0,S.hp-hit);hpChanged(prev);
+ // HP can't drop below 0, so report what was actually lost and how much more the hit carried
+ const lost=prev-S.hp,over=hit-lost;
+ const parts=[n-afterArm?`−${n-afterArm} armor`:"",bar?`−${bar} barrier`:"",`−${lost} HP`,over>0?`${over} past 0`:""].filter(Boolean).join(", ");
+ addRoll({n:`Took ${n} ${kind.toLowerCase()}`,k:"note",lbl:hit?`−${lost} HP`:"NO HARM",bad:hit>0,x:parts});
+ msg.textContent=`${kind} ${n}: ${parts}.`+(S.hp<=0&&prev>0?" You're dying.":"");$("#dmgn").value="";update()});
+// A single Rest: HP back to full, every condition cleared, and each action's uses per rest refilled
+document.addEventListener("click",e=>{if(e.target.id!=="rest")return;const msg=$("#hmsg");
+ if(!confirm("Rest? This fills HP, clears every condition and refills each action’s uses."))return;
+ const prev=S.hp,cleared=S.conds.slice(),known=hpKnown();
+ if(known)S.hp=hpMax();S.conds=[];S.cdur={};S.used={};
+ const done=[known?`HP ${S.hp}`:"",cleared.length?`cleared ${cleared.join(", ")}`:"","uses refilled"].filter(Boolean).join(" · ");
+ addRoll({n:"Rest",k:"note",lbl:"REST",x:done});
+ msg.textContent="Rested: "+done+"."+(known?"":" HP wasn’t changed because your origin isn’t in the library.");
+ $("#amsg").textContent=$("#rmsg").textContent="";update()});
 
 document.addEventListener("click",e=>{
- const g=e.target.closest("[data-use],[data-ureset],#arest");if(!g)return;const msg=$("#amsg");
- if(g.id==="arest"){S.used={};msg.textContent="Rested: every action’s uses are refilled.";update();return}
+ const g=e.target.closest("[data-use],[data-ureset]");if(!g)return;const msg=$("#amsg");
  if(g.dataset.ureset!==undefined){delete S.used[norm(g.dataset.ureset)];msg.textContent=`${g.dataset.ureset} refilled.`;update();return}
  const a=grantedActions().find(x=>norm(x.name)===norm(g.dataset.use));if(!a)return;
  const it=a.it||{},{max,left}=usesOf(a),k=norm(a.name);
@@ -625,6 +660,31 @@ document.addEventListener("click",e=>{
   msg.textContent=`Used ${a.name}${dm?`, ${dm.total} dmg`:""}${tail}.`}
  update()});
 
+// ---------- Hands: a main hand and an off hand ----------
+const isTwoH=x=>!!x&&num((W(x.name)||{}).Hands)===2;
+// Index in S.wpn of the weapon in each hand (-1 = empty). A two-handed weapon in the main hand fills both,
+// and one can never sit in the off hand, so either case leaves the off hand empty.
+function held(){const m=S.wpn.findIndex(w=>w.hand==="main");let o=S.wpn.findIndex(w=>w.hand==="off");
+ if(o>=0&&((m>=0&&isTwoH(S.wpn[m]))||isTwoH(S.wpn[o])))o=-1;return{m,o}}
+const inHand=()=>{const h=held();return[h.m,h.o].filter(i=>i>=0).map(i=>S.wpn[i])};
+// Put owned weapon j (or nothing, j<0) in a hand, moving whatever was there back to stowed
+function ready(hand,j){const other=hand==="main"?"off":"main",x=S.wpn[j];
+ S.wpn.forEach(w=>{if(w.hand===hand)delete w.hand});
+ if(!x)return;
+ if(x.hand===other)delete x.hand;
+ x.hand=hand;
+ // A two-handed weapon needs the other hand free; readying anything in the off hand frees it from a two-hander
+ if(isTwoH(x))S.wpn.forEach(w=>{if(w!==x&&w.hand===other)delete w.hand});
+ if(hand==="off")S.wpn.forEach(w=>{if(w.hand==="main"&&isTwoH(w))delete w.hand})}
+// The card for a weapon in hand. A weapon with no Skill, Damage or magazine (a shield) is only held for its bonuses.
+function weaponBody(x,i){const it=W(x.name)||{},mx=num(it.MaxAmmo),fire=mx>0,empty=fire&&x.ammo<=0,sk=it.Skill||"One-Handed",gear=!it.Skill&&!it.Damage&&!fire;
+ const ty=fire?wtype(x):"",sp=ty?num(S.ammo[ty]):0,full=x.ammo>=mx,dry=ty&&sp<=0&&!full,noAp=apLeft()<1;
+ return `<div class="sub"><b>${esc(x.name)}</b>${gear?" · held":` · ${esc(sk)} (${CUR.fin[norm(sk)]??`<b class="dn" title="No skill called ${esc(sk)} on this sheet">?</b>`}) · DMG ${esc(it.Damage||"—")}`}${it.Range?" · Range "+esc(it.Range):""}</div>`+
+  `${it.Notes?`<div class="sub">${esc(it.Notes)}</div>`:""}${bonTags(it)}`+
+  (gear?"":`${fire?mag(i,x.ammo,mx):""}<div class="tl" style="margin-top:6px;flex-wrap:wrap"><button data-atk="${i}"${empty||noAp?" disabled":""} style="white-space:nowrap">${empty?"Empty, reload":noAp?"No actions left":fire?"Fire & roll":"Strike & roll"}</button>`+
+   (fire?`<span class="sub" style="margin:0;white-space:nowrap"><b class="${empty?"dn":""}">${x.ammo}</b> / ${mx}${magPer(mx)>1?` <small>(each ▮ = ${magPer(mx)})</small>`:""} <button data-rl="${i}"${full||dry||noAp?" disabled":""}>${dry?"No spare ammo":!full&&noAp?"No actions left":"↻ Reload"}</button></span>`:"")+`</div>`)+
+  (fire?`<div class="sub" style="margin:6px 0 0">${ty?`${esc(ty)}: <b class="${sp?"":"dn"}">${sp}</b> spare`:"Untracked ammo: free reloads"}</div>`:"")}
+
 function renderArmory(){
  let wt=0;
  const bySlot={};S.arm.forEach(n=>{const sl=slotOf(n);if(!bySlot[sl])bySlot[sl]=n});
@@ -635,10 +695,21 @@ function renderArmory(){
    <select data-aslot="${sl}" aria-label="${sl} armor"><option value="">${list.length?"— Nothing —":"— None in library —"}</option>${list.map(a=>`<option${a.name===n?" selected":""}>${esc(a.name)}</option>`).join("")}${n&&!list.some(a=>a.name===n)?`<option selected>${esc(n)}</option>`:""}</select>
    ${it.Notes?`<div class="sub">${esc(it.Notes)}</div>`:""}${bonTags(it)}</div>`}).join(""));
  $("#armtot").textContent=`+${armSum} mechanical · +${chemSum} chemical from gear`;
- const wpns=S.wpn.map((x,i)=>{const it=W(x.name)||{},mx=num(it.MaxAmmo),w=num(it.Weight),fire=mx>0,empty=fire&&x.ammo<=0,sk=it.Skill||"One-Handed";wt+=w;
-  const ty=fire?wtype(x):"",sp=ty?num(S.ammo[ty]):0,full=x.ammo>=mx,dry=ty&&sp<=0&&!full;
-  return `<div class="tank"><div class="tl"><b>${esc(x.name)}</b><span>${w} lb <button data-un="wpn" data-i="${i}" aria-label="Unequip ${esc(x.name)}">×</button></span></div><div class="sub">${esc(sk)} (${CUR.fin[norm(sk)]??`<b class="dn" title="No skill called ${esc(sk)} on this sheet">?</b>`}) · DMG ${esc(it.Damage||"—")}${it.Range?" · Range "+esc(it.Range):""}</div>${it.Notes?`<div class="sub">${esc(it.Notes)}</div>`:""}${bonTags(it)}${fire?mag(i,x.ammo,mx):""}<div class="tl" style="margin-top:6px;flex-wrap:wrap"><button data-atk="${i}"${empty||apLeft()<1?" disabled":""} style="white-space:nowrap">${empty?"Empty, reload":apLeft()<1?"No actions left":fire?"Fire & roll":"Strike & roll"}</button>${fire?`<span class="sub" style="margin:0;white-space:nowrap"><b class="${empty?"dn":""}">${x.ammo}</b> / ${mx}${magPer(mx)>1?` <small>(each ▮ = ${magPer(mx)})</small>`:""} <button data-rl="${i}"${full||dry||apLeft()<1?" disabled":""}>${dry?"No spare ammo":!full&&apLeft()<1?"No actions left":"↻ Reload"}</button></span>`:""}</div>`+
-   (fire?`<div class="tl wammo" style="margin-top:6px"><label class="sub" style="margin:0">Ammo <select data-wtype="${i}" aria-label="${esc(x.name)} ammo type"><option value=""${ty?"":" selected"}>— untracked —</option>${ammoTypes().map(t=>`<option${t===ty?" selected":""}>${esc(t)}</option>`).join("")}</select></label><span class="sub" style="margin:0">${ty?`<b class="${sp?"":"dn"}">${sp}</b> spare`:"free reloads"}</span></div>`:"")+`</div>`}).join("");
+ // Every owned weapon counts towards the load; the Armory lists them, the Actions tab shows the ones in hand
+ S.wpn.forEach(x=>{wt+=num((W(x.name)||{}).Weight)});
+ const H=held(),where=i=>i===H.m?(isTwoH(S.wpn[i])?"Both hands":"Main hand"):i===H.o?"Off hand":"Stowed";
+ const owned=S.wpn.map((x,i)=>{const it=W(x.name)||{},mx=num(it.MaxAmmo),ty=mx>0?wtype(x):"",sp=ty?num(S.ammo[ty]):0;
+  return `<div class="tank${i===H.m||i===H.o?" on":""}"><div class="tl"><b>${esc(x.name)}</b><span>${num(it.Weight)} lb <button data-un="wpn" data-i="${i}" aria-label="Drop ${esc(x.name)}" title="Remove from the character">×</button></span></div>`+
+   `<div class="sub">${where(i)}${isTwoH(x)?" · two-handed":""}${mx>0?` · ${x.ammo} / ${mx} loaded`:""}</div>`+
+   (mx>0?`<div class="tl wammo" style="margin-top:6px"><label class="sub" style="margin:0">Ammo <select data-wtype="${i}" aria-label="${esc(x.name)} ammo type"><option value=""${ty?"":" selected"}>— untracked —</option>${ammoTypes().map(t=>`<option${t===ty?" selected":""}>${esc(t)}</option>`).join("")}</select></label><span class="sub" style="margin:0">${ty?`<b class="${sp?"":"dn"}">${sp}</b> spare`:"free reloads"}</span></div>`:"")+`</div>`}).join("");
+ setHTML($("#owned"),owned||`<div class="sub">No weapons yet. Add the ones this character carries.</div>`);
+ // One card per hand. A two-handed weapon in the main hand fills the off hand too.
+ const slot=(hand,label)=>{const i=hand==="main"?H.m:H.o,twoMain=hand==="off"&&H.m>=0&&isTwoH(S.wpn[H.m]);
+  const opts=S.wpn.map((x,j)=>hand==="off"&&isTwoH(x)?"":`<option value="${j}"${j===i?" selected":""}>${esc(x.name)}${isTwoH(x)?" (2H)":""}${j!==i&&where(j)!=="Stowed"?" · "+where(j).toLowerCase():""}</option>`).join("");
+  const head=`<div class="tl"><b>${label}</b><select data-hand="${hand}" aria-label="${label}: swap weapon"${S.wpn.length?"":" disabled"}><option value=""${i<0?" selected":""}>— Empty —</option>${opts}</select></div>`;
+  if(i<0)return `<div class="tank">${head}<div class="sub">${twoMain?`Taken by ${esc(S.wpn[H.m].name)} (two-handed).`:S.wpn.length?"Empty. Pick a weapon to ready it (1 action).":"No weapons owned. Add them on the Armory tab."}</div></div>`;
+  return `<div class="tank on">${head}${weaponBody(S.wpn[i],i)}</div>`};
+ const wpns=slot("main","Main hand")+slot("off","Off hand");
  const used={};S.wpn.forEach(x=>{const t=wtype(x);if(t&&num((W(x.name)||{}).MaxAmmo)>0)(used[t]=used[t]||[]).push(x.name)});
  setHTML($("#ammo"),ammoTypes().map(t=>`<div class="tank${used[t]?" on":""}"><div class="tl"><b>${esc(t)}</b><input type="number" min="0" data-ammotype="${esc(t)}" value="${num(S.ammo[t])}" aria-label="${esc(t)} spare rounds"></div><div class="btns">${[-10,-1,1,10].map(v=>`<button data-ad="${v}" data-at="${esc(t)}" aria-label="${v>0?"Add":"Remove"} ${Math.abs(v)} ${esc(t)}">${v>0?"+":""}${v}</button>`).join("")}</div>${used[t]?`<div class="sub">${used[t].map(esc).join(", ")}</div>`:""}</div>`).join(""));
  const gear=S.gear.map((g,i)=>{const it=g.link?W(g.link)||{}:g,uw=g.link?num(it.Weight):num(g.weight),q=num(g.qty,1);wt+=uw*q;
@@ -652,7 +723,7 @@ function renderArmory(){
  setHTML($("#wpns"),wpns||`<div class="sub">No weapons equipped.</div>`);
  setHTML($("#gear"),gear||`<div class="sub">No items.</div>`);
  $("#addcond").innerHTML=opts("+ Apply condition…",(L.by.condition||[]).filter(c=>!S.conds.some(x=>norm(x)===norm(c.name))));
- $("#addwpn").innerHTML=opts("+ Equip weapon…",L.by.weapon||[]);
+ $("#addwpn").innerHTML=opts("+ Add weapon…",L.by.weapon||[]);
  $("#additem").innerHTML=opts("+ Add item…",L.by.item||[])}
 
 document.addEventListener("click",e=>{
@@ -705,6 +776,14 @@ document.addEventListener("change",e=>{
  else if(d.cdur!==undefined){const v=Math.floor(num(t.value));if(v>0)S.cdur[d.cdur]=v;else delete S.cdur[d.cdur];update()}
  else if(d.ammotype!==undefined){S.ammo[d.ammotype]=Math.max(0,Math.floor(num(t.value)));update()}
  else if(d.wtype!==undefined){S.wpn[+d.wtype].type=t.value;update()}
+ // Swapping what a hand holds: readying a weapon takes 1 action and is logged; letting go (Empty) is free
+ else if(d.hand!==undefined){const hand=d.hand,label=hand==="main"?"Main hand":"Off hand",H=held(),cur=hand==="main"?H.m:H.o,j=t.value===""?-1:+t.value;
+  if(j===cur)return;
+  const was=cur>=0?S.wpn[cur].name:"empty";
+  if(j<0){ready(hand,-1);$("#atk").textContent=`${label}: put away ${was}.`;update();return}
+  if(!spendAP(1,"Swapping weapons",$("#atk"))){update();return}
+  ready(hand,j);addRoll({n:"Swap Weapon",k:"act",x:`${label}: ${was} → ${S.wpn[j].name}`});
+  $("#atk").textContent=`${label}: ${S.wpn[j].name} ready.`;update()}
  else if(d.gi!==undefined){const g=S.gear[+d.gi];if(d.gf==="name")g.name=t.value.trim()||"Item";else g[d.gf]=Math.max(0,num(t.value));update()}
  else if(t.value&&["addcond","addwpn","additem"].includes(id)){
   if(id==="addcond"){S.conds.push(t.value);const it=W(t.value)||{},r=Math.floor(num(it.Duration??it.Rounds));if(r>0)S.cdur[t.value]=r}
@@ -712,7 +791,9 @@ document.addEventListener("change",e=>{
    // A weapon whose library entry names its ammo type is loaded from the pool; others come loaded
    const mx=num((W(t.value)||{}).MaxAmmo),x={name:t.value,ammo:mx},ty=mx>0?wtype(x):"";
    if(ty){const take=Math.min(mx,num(S.ammo[ty]));x.ammo=take;S.ammo[ty]=num(S.ammo[ty])-take}
-   S.wpn.push(x)}
+   S.wpn.push(x);
+   // Picking up a weapon with an empty main hand readies it straight away (out of a fight there is nothing to spend)
+   if(held().m<0)ready("main",S.wpn.length-1)}
   else S.gear.push({link:t.value,qty:1});
   update()}});
 
